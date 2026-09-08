@@ -6,11 +6,11 @@ A production-grade, cross-platform mobile ecosystem unifying Students, Alumni, B
 **GritSim AI** builds intelligent institutional infrastructure focused on **Graduate Readiness, Industry Transition, and Talent Matching (GRIT)**. Richfield Connect is architected to eliminate the graduate-opportunity gap through context-aware AI coaching, cryptographic identity verification, and role-differentiated engagement.
 
 ## Team GritSim AI (Core Contributors)
-- **Tebogo (Mosalasaa999)**: Core Runtime Scaffolding, Multi-Role RBAC & Firebase Infrastructure
+- **Mosa (Mosalasaa999)**: Core Runtime Scaffolding, Multi-Role RBAC & Firebase Infrastructure
 - **Dali (dalictn)**: Principal Systems Architecture, Google Gemini Integration & Admin Suite
 - **Ina**: AI Profile Assistant Design, Career Pathway Explorer & UX Modelling
 - **Lindelani (gloriouslindelani-oss)**: 20-Field Portfolio Architecture & POPIA Compliance Framework
-- **Nxilimbelenthlanu (Zenacy)**: Real-Time Communication Engine, Social Graph & Asynchronous Transcoding
+- **Evan (Zenacy)**: Real-Time Communication Engine, Social Graph & Asynchronous Transcoding
 
 ## System Architecture & Technology Choices
 - **Frontend Runtime**: React Native 0.81 with React Native Web interoperability
