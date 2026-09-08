@@ -1,0 +1,79 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function role(r) { return signedIn() && request.auth.token.role == r; }
+    function isAdmin() { return role('administrator') && request.auth.token.accountStatus != 'suspended' && request.auth.token.accountStatus != 'revoked'; }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+    function activeUser() { return signedIn() && request.auth.token.accountStatus != 'suspended' && request.auth.token.accountStatus != 'revoked'; }
+    function approvedUser() { return activeUser() && (request.auth.token.role != 'business' || request.auth.token.isApproved == true); }
+    function sameImmutableUserFields() {
+      return request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.isApproved == resource.data.isApproved
+        && request.resource.data.accountStatus == resource.data.accountStatus;
+    }
+    function validVisibility(v) {
+      return v == 'public' || v == 'connections' || v == 'private';
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if false;
+      allow update: if isOwner(uid) && sameImmutableUserFields();
+      allow delete: if false;
+      match /devices/{deviceId} { allow read, write: if false; }
+    }
+
+    match /alumni_registry/{recordId} { allow read, write: if false; }
+    match /alumni_verification_requests/{requestId} { allow read, write: if false; }
+    match /registration_intents/{intentId} { allow read, write: if false; }
+
+    match /connection_requests/{requestId} {
+      allow read: if activeUser() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid || isAdmin());
+      allow create, update, delete: if false;
+    }
+    match /connections/{uid}/members/{memberUid} { allow read: if isOwner(uid) || isAdmin(); allow write: if false; }
+
+    match /posts/{postId} {
+      allow read: if approvedUser();
+      allow create, update, delete: if false;
+      match /comments/{commentId} { allow read: if approvedUser(); allow write: if false; }
+      match /reactions/{reactionUid} { allow read: if approvedUser(); allow write: if false; }
+    }
+    match /feeds/{uid}/items/{itemId} { allow read: if (isOwner(uid) && approvedUser()) || isAdmin(); allow write: if false; }
+
+    match /conversations/{conversationId} {
+      allow read: if approvedUser() && request.auth.uid in resource.data.memberUids;
+      allow write: if false;
+      match /messages/{messageId} { allow read: if approvedUser() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.memberUids; allow write: if false; }
+    }
+
+    match /videos/{videoId} { allow read: if approvedUser() && (resource.data.uid == request.auth.uid || isAdmin()); allow write: if false; }
+
+    match /opportunities/{opportunityId} {
+      allow read: if approvedUser() && (resource.data.status == 'approved' || isAdmin() || resource.data.ownerUid == request.auth.uid);
+      allow write: if false;
+      match /applications/{studentUid} {
+        allow read: if isAdmin() || (isOwner(studentUid) && approvedUser()) || (approvedUser() && get(/databases/$(database)/documents/opportunities/$(opportunityId)).data.ownerUid == request.auth.uid);
+        allow write: if false;
+      }
+    }
+    match /matches/{uid}/opportunities/{opportunityId} { allow read: if isOwner(uid) && approvedUser() || isAdmin(); allow write: if false; }
+    match /opportunity_views/{viewId} { allow read, write: if false; }
+    match /skill_demand/{skill} { allow read: if approvedUser(); allow write: if false; }
+    match /profile_views/{viewId} { allow read, write: if false; }
+
+    match /announcements/{announcementId} {
+      allow read: if activeUser() && (resource.data.targetRole == 'all' || resource.data.targetRole == request.auth.token.role || isAdmin());
+      allow write: if false;
+    }
+
+    match /moderation_flags/{flagId} { allow read: if isAdmin(); allow write: if false; }
+    match /admin_logs/{logId} { allow read: if isAdmin(); allow write: if false; }
+    match /analytics/{document=**} { allow read, write: if false; }
+
+    match /admin/{document=**} { allow read, write: if isAdmin(); }
+  }
+}

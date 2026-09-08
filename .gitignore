@@ -1,0 +1,13 @@
+﻿node_modules/
+functions/node_modules/
+.env
+.env.local
+functions/.env
+*.pem
+dist/
+build/
+.cache/
+*.log
+npm-debug.log*
+.DS_Store
+Thums.db

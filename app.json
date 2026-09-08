@@ -1,0 +1,18 @@
+{
+  "name": "RichfieldConnect",
+  "displayName": "Richfield Connect",
+  "version": "1.0.0",
+  "private": true,
+  "reactNative": {
+    "newArchEnabled": true,
+    "hermesEnabled": true
+  },
+  "web": {
+    "platform": "react-native-web",
+    "bundler": "webpack"
+  },
+  "firebase": {
+    "authEmailLinkPath": "/alumni-finish",
+    "functionsRegion": "africa-south1"
+  }
+}

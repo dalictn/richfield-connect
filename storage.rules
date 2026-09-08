@@ -1,0 +1,28 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null; }
+    function owner(uid) { return signedIn() && request.auth.uid == uid; }
+    function approved() { return signedIn() && (request.auth.token.role != 'business' || request.auth.token.isApproved == true); }
+
+    // Source video files are write-only for their owner. They are never readable
+    // by mobile clients and are processed asynchronously before publication.
+    match /video-input/{uid}/{videoId}/{fileName} {
+      allow write: if owner(uid) && approved()
+        && request.resource.size < 524288000
+        && request.resource.contentType.matches('video/.*');
+      allow read: if false;
+      allow delete: if owner(uid);
+    }
+
+    // Only processed media can be read by authenticated approved users.
+    match /video-processed/{uid}/{videoId}/{fileName} {
+      allow read: if approved();
+      allow write, delete: if false;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
