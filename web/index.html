@@ -1,9 +1,99 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
     <title>Richfield Connect</title>
+    <style>
+      /* 1. Ensure the browser allows scrolling */
+      html, body {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: #F8FAFC;
+        overflow-x: hidden;
+        overflow-y: auto !important;
+      }
+
+      #root {
+        min-height: 100%;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* 2. OVERRIDE REACT NATIVE WEB: Force all clipped screen containers to scroll */
+      #root div[style*="overflow: hidden"],
+      #root div[class*="r-overflow"] {
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      /* 3. FIX "JUSTIFY-CONTENT: CENTER":
+         'safe center' tells the browser: Center the form IF it fits. 
+         If it's taller than the screen, align to the TOP so headers/inputs NEVER get pushed off! */
+      #root div[style*="justify-content: center"],
+      #root div[class*="r-justifyContent"] {
+        justify-content: safe center !important;
+      }
+
+      /* 4. Ensure flex containers don't collapse or crush inputs */
+      #root div[style*="flex: 1"],
+      #root div[class*="r-flex"] {
+        min-height: min-content;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html><!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+    <title>Richfield Connect</title>
+    <style>
+      /* 1. Ensure the browser allows scrolling */
+      html, body {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: #F8FAFC;
+        overflow-x: hidden;
+        overflow-y: auto !important;
+      }
+
+      #root {
+        min-height: 100%;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* 2. OVERRIDE REACT NATIVE WEB: Force all clipped screen containers to scroll */
+      #root div[style*="overflow: hidden"],
+      #root div[class*="r-overflow"] {
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      /* 3. FIX "JUSTIFY-CONTENT: CENTER":
+         'safe center' tells the browser: Center the form IF it fits. 
+         If it's taller than the screen, align to the TOP so headers/inputs NEVER get pushed off! */
+      #root div[style*="justify-content: center"],
+      #root div[class*="r-justifyContent"] {
+        justify-content: safe center !important;
+      }
+
+      /* 4. Ensure flex containers don't collapse or crush inputs */
+      #root div[style*="flex: 1"],
+      #root div[class*="r-flex"] {
+        min-height: min-content;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
