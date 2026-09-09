@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { completeStudentRegistration } from '../../auth/authService';
+import { notify } from '../../ui/alert';
 import { useAuth } from '../../auth/AuthProvider';
 
 export function AccountProvisioningScreen({ error }: { error: string | null }) {
@@ -13,7 +14,7 @@ export function AccountProvisioningScreen({ error }: { error: string | null }) {
       await firebaseUser?.reload();
       await completeStudentRegistration();
     } catch (err) {
-      Alert.alert('Account setup', err instanceof Error ? err.message : 'Unable to complete account setup.');
+      notify('Account setup', err instanceof Error ? err.message : 'Unable to complete account setup.');
     } finally {
       setBusy(false);
     }

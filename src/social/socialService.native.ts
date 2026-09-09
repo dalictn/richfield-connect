@@ -11,6 +11,7 @@ export const createPost = (body: string) => callFunction<{ body: string }, { ok:
 export const reactToPost = (postId: string, reaction: 'like' | 'celebrate' | 'insightful') => callFunction<{ postId: string; reaction: string }, { ok: boolean; active: boolean }>('reactToPost', { postId, reaction });
 export const commentOnPost = (postId: string, body: string) => callFunction<{ postId: string; body: string }, { ok: boolean; commentId: string }>('commentOnPost', { postId, body });
 export const sendDirectMessage = (targetUid: string, body: string) => callFunction<{ targetUid: string; body: string }, { ok: boolean; conversationId: string; messageId: string }>('sendDirectMessage', { targetUid, body });
+export const reportContent = (input: { contentType: 'post' | 'comment' | 'profile'; contentId: string; reason: string; parentId?: string }) => callFunction<typeof input, { ok: boolean; flagId: string; alreadyReported: boolean }>('reportContent', input);
 
 export function subscribeConnections(uid: string, onNext: (items: ConnectionMember[]) => void, onError: (error: Error) => void): () => void {
   return onSnapshot(collection(doc(collection(db, 'connections'), uid), 'members'), (snap) => onNext(snap.docs.map((d) => ({ uid: d.id, ...(d.data() as object) })) as ConnectionMember[]), onError);

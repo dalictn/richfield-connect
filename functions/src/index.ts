@@ -3,33 +3,24 @@ import { adminAuth as auth, adminDb as db } from './firebaseAdmin';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { createHash } from 'node:crypto';
 import { beforeUserCreated } from './authBlocking';
+import { isStudentEmail, normalizeEmail } from './institutionalDomains';
 import {
   finalizeAlumniRegistration,
   verifyAlumniCredentials,
 } from './alumniVerification';
+import { APP_CHECK_ENFORCEMENT } from './appCheck';
 
 export { beforeUserCreated, verifyAlumniCredentials, finalizeAlumniRegistration };
 export { upsertPortfolioProfile, endorseSkill, evaluateProfileCompleteness, completeOnboarding, getVisibleProfile } from './portfolio';
 export { extractCvProfile } from './cvExtraction';
 export { profileAssistant } from './profileAssistant';
+export { searchDirectory } from './directory';
 
-const STUDENT_DOMAINS = ['@my.richfield.ac.za', '@richfield.ac.za', '@my.aaa.ac.za', '@aaa.ac.za'] as const;
 const REGISTRATION_INTENTS = 'registration_intents';
 const INTENT_TTL_MS = 15 * 60 * 1000;
 
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
-
 function validEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function isStudentEmail(email: string): boolean {
-  const normalized = normalizeEmail(email);
-  return STUDENT_DOMAINS.some(
-    (domain) => normalized.endsWith(domain) && normalized.indexOf('@') === normalized.length - domain.length,
-  );
 }
 
 function requireSignedIn(request: { auth?: { uid?: string | null } | null }): string {
@@ -54,7 +45,7 @@ function emailHash(email: string): string {
 }
 
 export const createBusinessRegistrationIntent = onCall(
-  { enforceAppCheck: true, consumeAppCheckToken: true, region: 'africa-south1' },
+  { ...APP_CHECK_ENFORCEMENT, region: 'africa-south1' },
   async (request) => {
     try {
       const email = normalizeEmail(String(request.data?.email ?? ''));
@@ -84,7 +75,7 @@ export const createBusinessRegistrationIntent = onCall(
 );
 
 export const finalizeStudentRegistration = onCall(
-  { enforceAppCheck: true, consumeAppCheckToken: true, region: 'africa-south1' },
+  { ...APP_CHECK_ENFORCEMENT, region: 'africa-south1' },
   async (request) => {
     try {
       const uid = requireSignedIn(request);
@@ -100,7 +91,7 @@ export const finalizeStudentRegistration = onCall(
         throw new HttpsError('invalid-argument', 'A valid display name is required.');
       }
 
-      await auth.setCustomUserClaims(uid, { role: 'student', isApproved: true });
+      await auth.setCustomUserClaims(uid, { role: 'student', isApproved: true, accountStatus: 'active' });
       await db.collection('users').doc(uid).set(
         {
           uid,
@@ -108,6 +99,7 @@ export const finalizeStudentRegistration = onCall(
           email,
           displayName,
           isApproved: true,
+          accountStatus: 'active',
           emailVerified: true,
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
@@ -125,7 +117,7 @@ export const finalizeStudentRegistration = onCall(
 );
 
 export const finalizeBusinessRegistration = onCall(
-  { enforceAppCheck: true, consumeAppCheckToken: true, region: 'africa-south1' },
+  { ...APP_CHECK_ENFORCEMENT, region: 'africa-south1' },
   async (request) => {
     try {
       const uid = requireSignedIn(request);
@@ -158,7 +150,7 @@ export const finalizeBusinessRegistration = onCall(
         throw new HttpsError('permission-denied', 'The business registration session is invalid or expired.');
       }
 
-      await auth.setCustomUserClaims(uid, { role: 'business', isApproved: false });
+      await auth.setCustomUserClaims(uid, { role: 'business', isApproved: false, accountStatus: 'active' });
       await db.runTransaction(async (transaction) => {
         transaction.set(
           db.collection('users').doc(uid),
@@ -175,6 +167,7 @@ export const finalizeBusinessRegistration = onCall(
             contactName: String(data.contactName).trim(),
             contactPhone: String(data.contactPhone).trim(),
             isApproved: false,
+            accountStatus: 'active',
             emailVerified: record.emailVerified,
             createdAt: FieldValue.serverTimestamp(),
             updatedAt: FieldValue.serverTimestamp(),
@@ -194,7 +187,7 @@ export const finalizeBusinessRegistration = onCall(
 );
 
 export const approveBusinessUser = onCall(
-  { enforceAppCheck: true, consumeAppCheckToken: true, region: 'africa-south1' },
+  { ...APP_CHECK_ENFORCEMENT, region: 'africa-south1' },
   async (request) => {
     try {
       requireAdministrator(request);
@@ -206,8 +199,13 @@ export const approveBusinessUser = onCall(
       if (!snap.exists) throw new HttpsError('not-found', 'Business user profile not found.');
       if (snap.data()?.role !== 'business') throw new HttpsError('failed-precondition', 'Target user is not a business user.');
 
-      await userRef.update({ isApproved: true, updatedAt: FieldValue.serverTimestamp() });
-      await auth.setCustomUserClaims(uid, { role: 'business', isApproved: true });
+      const accountStatus = String(snap.data()?.accountStatus ?? 'active');
+      if (accountStatus !== 'active') {
+        throw new HttpsError('failed-precondition', 'Reactivate the account before approving it.');
+      }
+
+      await userRef.update({ isApproved: true, accountStatus, updatedAt: FieldValue.serverTimestamp() });
+      await auth.setCustomUserClaims(uid, { role: 'business', isApproved: true, accountStatus });
       return { ok: true };
     } catch (error) {
       if (error instanceof HttpsError) throw error;
@@ -231,4 +229,4 @@ export { processUploadedVideo } from './videoProcessing';
 export { createOpportunity, reviewOpportunity, applyToOpportunity, recordOpportunityView, recordSkillSearch, recomputeOpportunityMatches } from './opportunities';
 export { registerFcmToken, createAnnouncement, notifyConnectionRequest, notifyConnectionAccepted, notifyDirectMessage, notifyOpportunityMatches, notifyAnnouncement, matchOnOpportunityApproval } from './notifications';
 export { recordUserActivity, recordProfileView, getStudentAnalytics, getBusinessAnalytics, getAdminAnalytics, updateRegistrationAnalytics, updateOpportunityAnalytics } from './analytics';
-export { manageUserStatus, moderateContent, broadcastAnnouncement, listAdminUsers, listModerationQueue } from './admin';
+export { manageUserStatus, moderateContent, reportContent, broadcastAnnouncement, listAdminUsers, listModerationQueue } from './admin';

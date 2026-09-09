@@ -1,6 +1,7 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { adminDb as db } from './firebaseAdmin';
 import { runAi, AI_API_KEY } from './ai';
+import { APP_CHECK_ENFORCEMENT } from './appCheck';
 
 const REGION = 'africa-south1';
 
@@ -22,8 +23,7 @@ function cleanHistory(value: unknown): Array<{ role: 'user' | 'assistant'; conte
 
 export const profileAssistant = onCall({
   region: REGION,
-  enforceAppCheck: true,
-  consumeAppCheckToken: true,
+  ...APP_CHECK_ENFORCEMENT,
   secrets: [AI_API_KEY],
 }, async (request) => {
   try {

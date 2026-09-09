@@ -5,6 +5,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { adminDb as db } from './firebaseAdmin';
 import { matchApprovedOpportunity } from './opportunities';
+import { APP_CHECK_ENFORCEMENT } from './appCheck';
 
 const REGION = 'africa-south1';
 function uidOf(request: { auth?: { uid?: string | null } | null }): string {
@@ -44,7 +45,7 @@ async function sendToUsers(uids: string[], notification: { title: string; body: 
   }
 }
 
-export const registerFcmToken = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const registerFcmToken = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const uid = uidOf(request);
     const token = text(request.data?.token, 'FCM token', 4096);
@@ -59,7 +60,7 @@ export const registerFcmToken = onCall({ enforceAppCheck: true, consumeAppCheckT
   }
 });
 
-export const createAnnouncement = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const createAnnouncement = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const adminUid = adminOnly(request);
     const title = text(request.data?.title, 'Title', 120);
@@ -113,6 +114,10 @@ export const notifyOpportunityMatches = onDocumentCreated({ document: 'matches/{
 
 export const notifyAnnouncement = onDocumentCreated({ document: 'announcements/{announcementId}', region: REGION }, async (event) => {
   const data = event.data?.data(); if (!data) return;
+  // broadcastAnnouncement delivers its own push so it can report per-device
+  // results to the administrator. Without this guard every broadcast would be
+  // pushed twice to every recipient.
+  if (data.pushDeliveredBy) return;
   const targetRole = String(data.targetRole ?? 'all');
   const query = targetRole === 'all' ? db.collection('users').where('isApproved', '==', true).limit(5000) : db.collection('users').where('role', '==', targetRole).where('isApproved', '==', true).limit(5000);
   const users = await query.get();

@@ -10,17 +10,28 @@ import {
   signInWithEmailLink,
   signInWithEmailAndPassword,
   signOut,
+  connectAuthEmulator,
   type User,
 } from 'firebase/auth';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { collection, doc, getDoc, getFirestore, onSnapshot } from 'firebase/firestore';
+import { getFunctions, httpsCallable, connectFunctionsEmulator } from 'firebase/functions';
+import { collection, doc, getDoc, getFirestore, onSnapshot, connectFirestoreEmulator } from 'firebase/firestore';
 import { assertWebFirebaseConfig, WEB_FIREBASE_CONFIG } from './firebase';
+import { EMULATOR_HOST, EMULATOR_PORTS, useEmulators } from './emulatorConfig';
 
 assertWebFirebaseConfig();
 const app = getApps().length ? getApps()[0] : initializeApp(WEB_FIREBASE_CONFIG);
 const auth = getAuth(app);
 const functions = getFunctions(app, 'africa-south1');
 const db = getFirestore(app);
+
+if (useEmulators()) {
+  // App Check is not enforced by the Functions emulator, which is why callables
+  // work locally without a reCAPTCHA site key.
+  connectAuthEmulator(auth, `http://${EMULATOR_HOST}:${EMULATOR_PORTS.auth}`, { disableWarnings: true });
+  connectFirestoreEmulator(db, EMULATOR_HOST, EMULATOR_PORTS.firestore);
+  connectFunctionsEmulator(functions, EMULATOR_HOST, EMULATOR_PORTS.functions);
+  console.info('[Richfield Connect] Using the Firebase Emulator Suite on ' + EMULATOR_HOST);
+}
 
 export function getWebFirebaseApp() {
   return app;

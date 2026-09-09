@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { adminDb as db } from './firebaseAdmin';
 import { runAi, AI_API_KEY } from './ai';
+import { APP_CHECK_ENFORCEMENT } from './appCheck';
 
 const REGION = 'africa-south1';
 const MAX_TEXT = 30000;
@@ -50,8 +51,7 @@ const SYSTEM_PROMPT = `You are Richfield Connect's CV-to-portfolio extraction en
 
 export const extractCvProfile = onCall({
   region: REGION,
-  enforceAppCheck: true,
-  consumeAppCheckToken: true,
+  ...APP_CHECK_ENFORCEMENT,
   secrets: [AI_API_KEY],
 }, async (request) => {
   try {

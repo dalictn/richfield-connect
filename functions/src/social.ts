@@ -1,6 +1,7 @@
-import { FieldValue, Timestamp, collectionGroup } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { adminAuth as auth, adminDb as db } from './firebaseAdmin';
+import { APP_CHECK_ENFORCEMENT } from './appCheck';
 
 const REGION = 'africa-south1';
 const MAX_TEXT = 4000;
@@ -73,7 +74,7 @@ function relevanceScore(viewerRole: Role, authorRole: Role, createdAtMs: number,
   return roleAffinity[viewerRole][authorRole] * 100 + freshness * 40 + reactions * 2 + comments * 3;
 }
 
-export const createConnectionRequest = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const createConnectionRequest = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const { uid } = approvedRole(request);
     const targetUid = text(request.data?.targetUid, 128, 'targetUid');
@@ -100,7 +101,7 @@ export const createConnectionRequest = onCall({ enforceAppCheck: true, consumeAp
   }
 });
 
-export const respondToConnectionRequest = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const respondToConnectionRequest = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const { uid } = approvedRole(request);
     const requestId = text(request.data?.requestId, 128, 'requestId');
@@ -121,8 +122,11 @@ export const respondToConnectionRequest = onCall({ enforceAppCheck: true, consum
     const fromUid = String(data.fromUid);
     const batch = db.batch();
     const now = FieldValue.serverTimestamp();
-    batch.set(db.collection('connections').doc(uid).collection('members').doc(fromUid), { uid: fromUid, connectedAt: now });
-    batch.set(db.collection('connections').doc(fromUid).collection('members').doc(uid), { uid, connectedAt: now });
+    // `status` is written so a membership document is self-describing. Readers
+    // should still treat existence as the source of truth (see areConnected):
+    // the document only ever exists once a request has been accepted.
+    batch.set(db.collection('connections').doc(uid).collection('members').doc(fromUid), { uid: fromUid, status: 'accepted', connectedAt: now });
+    batch.set(db.collection('connections').doc(fromUid).collection('members').doc(uid), { uid, status: 'accepted', connectedAt: now });
     batch.update(requestRef, { status: 'accepted', updatedAt: now });
     await batch.commit();
     return { ok: true };
@@ -133,7 +137,7 @@ export const respondToConnectionRequest = onCall({ enforceAppCheck: true, consum
   }
 });
 
-export const createPost = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const createPost = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const { uid, role } = approvedRole(request);
     const body = text(request.data?.body, MAX_TEXT, 'body');
@@ -163,7 +167,7 @@ export const createPost = onCall({ enforceAppCheck: true, consumeAppCheckToken: 
   }
 });
 
-export const reactToPost = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const reactToPost = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const { uid } = approvedRole(request);
     const postId = text(request.data?.postId, 128, 'postId');
@@ -191,7 +195,7 @@ export const reactToPost = onCall({ enforceAppCheck: true, consumeAppCheckToken:
   }
 });
 
-export const commentOnPost = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const commentOnPost = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const { uid } = approvedRole(request);
     const postId = text(request.data?.postId, 128, 'postId');
@@ -210,7 +214,7 @@ export const commentOnPost = onCall({ enforceAppCheck: true, consumeAppCheckToke
   }
 });
 
-export const sendDirectMessage = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const sendDirectMessage = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const { uid } = approvedRole(request);
     const targetUid = text(request.data?.targetUid, 128, 'targetUid');
@@ -232,7 +236,7 @@ export const sendDirectMessage = onCall({ enforceAppCheck: true, consumeAppCheck
   }
 });
 
-export const recomputeFeedScore = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const recomputeFeedScore = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const { uid } = approvedRole(request);
     const postId = text(request.data?.postId, 128, 'postId');
@@ -250,7 +254,7 @@ export const recomputeFeedScore = onCall({ enforceAppCheck: true, consumeAppChec
   }
 });
 
-export const deleteOwnPost = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const deleteOwnPost = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const { uid } = approvedRole(request);
     const postId = text(request.data?.postId, 128, 'postId');

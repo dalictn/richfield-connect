@@ -3,21 +3,9 @@ import { beforeUserCreated as registerBeforeUserCreated } from 'firebase-functio
 import { Timestamp } from 'firebase-admin/firestore';
 import { adminDb as db } from './firebaseAdmin';
 import { createHash } from 'node:crypto';
+import { isStudentEmail, normalizeEmail } from './institutionalDomains';
 
-const ALLOWED_STUDENT_DOMAINS = ['@richfield.ac.za', '@aaa.ac.za'] as const;
 const INTENT_COLLECTION = 'registration_intents';
-
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
-
-function endsExactly(email: string, domain: string): boolean {
-  return email.endsWith(domain) && email.indexOf('@') === email.length - domain.length;
-}
-
-function isStudentDomain(email: string): boolean {
-  return ALLOWED_STUDENT_DOMAINS.some((domain) => endsExactly(email, domain));
-}
 
 function hashEmail(email: string): string {
   return createHash('sha256').update(normalizeEmail(email)).digest('hex');
@@ -38,13 +26,13 @@ export const beforeUserCreated = beforeUserCreatedTrigger();
 function beforeUserCreatedTrigger() {
   return registerBeforeUserCreated(async (event) => {
     try {
-      const email = normalizeEmail(event.data.email ?? '');
+      const email = normalizeEmail(event.data?.email ?? '');
 
       if (!email) {
         throw new HttpsError('invalid-argument', 'A valid email address is required.');
       }
 
-      if (isStudentDomain(email)) {
+      if (isStudentEmail(email)) {
         return {
           customClaims: {},
         };

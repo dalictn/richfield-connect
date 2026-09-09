@@ -12,6 +12,7 @@ export interface ConnectionRequest {
 
 export interface ConnectionMember {
   uid: string;
+  status?: 'accepted';
   connectedAt?: unknown;
 }
 

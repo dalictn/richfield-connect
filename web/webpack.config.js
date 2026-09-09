@@ -1,5 +1,14 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const webpack = require('webpack');
+
+// Set RICHFIELD_EMULATORS=1 (see `npm run web:emulators`) to point the web build
+// at the local Firebase Emulator Suite instead of the deployed project.
+const useEmulators = process.env.RICHFIELD_EMULATORS === '1';
+
+// reCAPTCHA v3 site key for App Check. Required for a deployed web build,
+// because every callable enforces App Check outside the emulator.
+const appCheckSiteKey = process.env.RICHFIELD_APP_CHECK_SITE_KEY || '';
 
 const appDirectory = path.resolve(__dirname, '..');
 
@@ -78,6 +87,10 @@ module.exports = {
     ],
   },
   plugins: [
+    new webpack.DefinePlugin({
+      __RICHFIELD_EMULATORS__: JSON.stringify(useEmulators),
+      __RICHFIELD_APP_CHECK_SITE_KEY__: JSON.stringify(appCheckSiteKey),
+    }),
     new HtmlWebpackPlugin({
       template: path.resolve(__dirname, 'index.html'),
     }),

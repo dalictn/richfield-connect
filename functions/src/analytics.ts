@@ -2,13 +2,14 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { adminDb as db } from './firebaseAdmin';
+import { APP_CHECK_ENFORCEMENT } from './appCheck';
 
 const REGION = 'africa-south1';
 function uidOf(request: { auth?: { uid?: string | null } | null }): string { if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Authentication is required.'); return request.auth.uid; }
 function roleOf(request: { auth?: { uid?: string | null; token?: Record<string, unknown> } | null }): string { const uid = uidOf(request); const role = String(request.auth?.token?.role ?? ''); if (!['student','alumni','business','administrator'].includes(role)) throw new HttpsError('permission-denied', 'A valid platform role is required.'); if (role === 'business' && request.auth?.token?.isApproved !== true) throw new HttpsError('permission-denied', 'Business approval is required.'); return role; }
 function adminOnly(request: { auth?: { uid?: string | null; token?: Record<string, unknown> } | null }): void { uidOf(request); if (request.auth?.token?.role !== 'administrator') throw new HttpsError('permission-denied', 'Administrator role required.'); }
 
-export const recordUserActivity = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const recordUserActivity = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const uid = uidOf(request);
     await db.collection('users').doc(uid).set({ lastActiveAt: FieldValue.serverTimestamp() }, { merge: true });
@@ -20,7 +21,7 @@ export const recordUserActivity = onCall({ enforceAppCheck: true, consumeAppChec
   }
 });
 
-export const recordProfileView = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const recordProfileView = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const viewerUid = uidOf(request); roleOf(request); const profileUid = String(request.data?.profileUid ?? '').trim();
     if (!profileUid || profileUid === viewerUid) return { ok: true };
@@ -36,7 +37,7 @@ export const recordProfileView = onCall({ enforceAppCheck: true, consumeAppCheck
   } catch (error) { if (error instanceof HttpsError) throw error; console.error('recordProfileView failed', error); throw new HttpsError('internal', 'Unable to record profile view.'); }
 });
 
-export const getStudentAnalytics = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const getStudentAnalytics = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const uid = uidOf(request); const role = roleOf(request); if (role !== 'student') throw new HttpsError('permission-denied', 'Student analytics required.');
     const profileSnap = await db.collection('users').doc(uid).get();
@@ -63,7 +64,7 @@ export const getStudentAnalytics = onCall({ enforceAppCheck: true, consumeAppChe
   } catch (error) { if (error instanceof HttpsError) throw error; console.error('getStudentAnalytics failed', error); throw new HttpsError('internal', 'Unable to load student analytics.'); }
 });
 
-export const getBusinessAnalytics = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const getBusinessAnalytics = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const uid = uidOf(request); const role = roleOf(request); if (role !== 'business') throw new HttpsError('permission-denied', 'Business analytics required.');
     const listings = await db.collection('opportunities').where('ownerUid', '==', uid).get();
@@ -76,7 +77,7 @@ export const getBusinessAnalytics = onCall({ enforceAppCheck: true, consumeAppCh
   } catch (error) { if (error instanceof HttpsError) throw error; console.error('getBusinessAnalytics failed', error); throw new HttpsError('internal', 'Unable to load business analytics.'); }
 });
 
-export const getAdminAnalytics = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const getAdminAnalytics = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     adminOnly(request);
     const users = await db.collection('users').get();
