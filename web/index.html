@@ -1,48 +1,102 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
     <title>Richfield Connect</title>
     <!--
-      The application palette is light-only, so opt out of the browser's dark
-      canvas. Without this, a viewer in dark mode gets inverted form controls
-      and a dark background behind light-coloured screens.
+      The application palette is light-only. Without this, a browser in dark
+      mode renders native form controls dark-on-dark inside light screens.
     -->
     <meta name="color-scheme" content="light" />
     <style>
-      /*
-        react-native-web sizes the application container with flex: 1. Flex
-        against a parent of indeterminate height resolves to zero, so without an
-        explicit height chain from html down to #root every screen body
-        collapses and only intrinsically-sized chrome (the navigation header)
-        remains visible.
-      */
-      html,
-      body,
-      #root {
+      /* 1. Ensure the browser allows scrolling */
+      html, body {
         height: 100%;
         width: 100%;
         margin: 0;
         padding: 0;
+        background-color: #F8FAFC;
+        overflow-x: hidden;
+        overflow-y: auto !important;
+      }
+
+      #root {
+        min-height: 100%;
+        width: 100%;
         display: flex;
         flex-direction: column;
       }
 
-      body {
-        background-color: #f6f8fa;
-        color-scheme: light;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-          'Helvetica Neue', Arial, sans-serif;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
+      /* 2. OVERRIDE REACT NATIVE WEB: Force all clipped screen containers to scroll */
+      #root div[style*="overflow: hidden"],
+      #root div[class*="r-overflow"] {
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
       }
 
-      /* react-native-web renders text nodes that should never be selected as
-         part of a drag, and inputs need the default caret behaviour back. */
-      input,
-      textarea {
-        outline-offset: 2px;
+      /* 3. FIX "JUSTIFY-CONTENT: CENTER":
+         'safe center' tells the browser: Center the form IF it fits. 
+         If it's taller than the screen, align to the TOP so headers/inputs NEVER get pushed off! */
+      #root div[style*="justify-content: center"],
+      #root div[class*="r-justifyContent"] {
+        justify-content: safe center !important;
+      }
+
+      /* 4. Ensure flex containers don't collapse or crush inputs */
+      #root div[style*="flex: 1"],
+      #root div[class*="r-flex"] {
+        min-height: min-content;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html><!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+    <title>Richfield Connect</title>
+    <style>
+      /* 1. Ensure the browser allows scrolling */
+      html, body {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: #F8FAFC;
+        overflow-x: hidden;
+        overflow-y: auto !important;
+      }
+
+      #root {
+        min-height: 100%;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* 2. OVERRIDE REACT NATIVE WEB: Force all clipped screen containers to scroll */
+      #root div[style*="overflow: hidden"],
+      #root div[class*="r-overflow"] {
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      /* 3. FIX "JUSTIFY-CONTENT: CENTER":
+         'safe center' tells the browser: Center the form IF it fits. 
+         If it's taller than the screen, align to the TOP so headers/inputs NEVER get pushed off! */
+      #root div[style*="justify-content: center"],
+      #root div[class*="r-justifyContent"] {
+        justify-content: safe center !important;
+      }
+
+      /* 4. Ensure flex containers don't collapse or crush inputs */
+      #root div[style*="flex: 1"],
+      #root div[class*="r-flex"] {
+        min-height: min-content;
       }
     </style>
   </head>

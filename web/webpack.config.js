@@ -1,5 +1,4 @@
 const path = require('path');
-const fs = require('fs');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpack = require('webpack');
 
@@ -8,7 +7,7 @@ const webpack = require('webpack');
 const useEmulators = process.env.RICHFIELD_EMULATORS === '1';
 
 // reCAPTCHA v3 site key for App Check. Required for a deployed web build,
-// because every callable is declared with enforceAppCheck.
+// because every callable enforces App Check outside the emulator.
 const appCheckSiteKey = process.env.RICHFIELD_APP_CHECK_SITE_KEY || '';
 
 const appDirectory = path.resolve(__dirname, '..');
@@ -22,8 +21,6 @@ const compileNodeModules = [
   'react-native-svg',
   '@react-native-async-storage',
 ].map((moduleName) => path.resolve(appDirectory, `node_modules/${moduleName}`));
-
-const htmlTemplatePath = path.resolve(__dirname, 'index.html');
 
 module.exports = {
   entry: path.resolve(appDirectory, 'index.js'),
@@ -45,16 +42,12 @@ module.exports = {
       '.json',
     ],
     alias: {
-      // 1. Alias React Native to React Native Web
       'react-native$': 'react-native-web',
-      
-      // 2. Route native Firebase calls to standard web Firebase when running on Web
       '@react-native-firebase/app': path.resolve(appDirectory, 'node_modules/firebase/app'),
       '@react-native-firebase/auth': path.resolve(appDirectory, 'node_modules/firebase/auth'),
       '@react-native-firebase/firestore': path.resolve(appDirectory, 'node_modules/firebase/firestore'),
       '@react-native-firebase/functions': path.resolve(appDirectory, 'node_modules/firebase/functions'),
       '@react-native-firebase/storage': path.resolve(appDirectory, 'node_modules/firebase/storage'),
-      
       '@': path.resolve(appDirectory, 'src'),
     },
   },
@@ -67,7 +60,6 @@ module.exports = {
           path.resolve(appDirectory, 'src'),
           ...compileNodeModules,
         ],
-        // CRITICAL FIX: Allows importing files without typing '.js' extension in node_modules
         resolve: {
           fullySpecified: false,
         },
@@ -78,7 +70,6 @@ module.exports = {
           },
         },
       },
-      // Fix for .mjs files inside node_modules
       {
         test: /\.m?js/,
         resolve: {
@@ -100,27 +91,9 @@ module.exports = {
       __RICHFIELD_EMULATORS__: JSON.stringify(useEmulators),
       __RICHFIELD_APP_CHECK_SITE_KEY__: JSON.stringify(appCheckSiteKey),
     }),
-    new HtmlWebpackPlugin(
-      fs.existsSync(htmlTemplatePath)
-        ? { template: htmlTemplatePath }
-        : {
-            title: 'Richfield Connect',
-            templateContent: `<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Richfield Connect</title>
-    <style>
-      html, body, #root { height: 100%; width: 100%; display: flex; flex-direction: column; margin: 0; padding: 0; }
-    </style>
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
-</html>`,
-          },
-    ),
+    new HtmlWebpackPlugin({
+      template: path.resolve(__dirname, 'index.html'),
+    }),
   ],
   devServer: {
     port: 8080,
@@ -129,7 +102,7 @@ module.exports = {
     client: {
       overlay: {
         errors: true,
-        warnings: false, // <-- disables warning popup
+        warnings: false,
       },
     },
   },
