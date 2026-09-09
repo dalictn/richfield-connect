@@ -1,31 +1,85 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../auth/AuthProvider';
-import { createConnectionRequest, respondToConnectionRequest, subscribeConnections, subscribeIncomingRequests } from '../../social/socialService';
+import { respondToConnectionRequest, subscribeConnections, subscribeIncomingRequests } from '../../social/socialService';
 import type { ConnectionMember, ConnectionRequest } from '../../types/social';
+import type { ConnectionsStackParamList } from '../../navigation/ConnectionsStack';
+
+type Navigation = NativeStackNavigationProp<ConnectionsStackParamList, 'ConnectionsHome'>;
 
 export function ConnectionsScreen() {
   const { firebaseUser } = useAuth();
+  const navigation = useNavigation<Navigation>();
   const uid = firebaseUser?.uid;
   const [members, setMembers] = useState<ConnectionMember[]>([]);
   const [requests, setRequests] = useState<ConnectionRequest[]>([]);
-  const [targetUid, setTargetUid] = useState('');
   const [message, setMessage] = useState('');
-  const [busy, setBusy] = useState(false);
 
   useEffect(() => uid ? subscribeConnections(uid, setMembers, e => setMessage(e.message)) : undefined, [uid]);
   useEffect(() => uid ? subscribeIncomingRequests(uid, setRequests, e => setMessage(e.message)) : undefined, [uid]);
 
-  async function request() { if (!targetUid.trim() || busy) return; setBusy(true); setMessage(''); try { await createConnectionRequest(targetUid.trim()); setTargetUid(''); setMessage('Request sent.'); } catch (e) { setMessage(e instanceof Error ? e.message : 'Unable to send request.'); } finally { setBusy(false); } }
-  async function respond(id: string, decision: 'accept' | 'decline') { try { await respondToConnectionRequest(id, decision); } catch (e) { setMessage(e instanceof Error ? e.message : 'Unable to respond.'); } }
+  async function respond(id: string, decision: 'accept' | 'decline') {
+    try {
+      await respondToConnectionRequest(id, decision);
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Unable to respond.');
+    }
+  }
 
-  return <View style={{ flex: 1, padding: 16 }}>
-    <Text style={{ fontSize: 26, fontWeight: '800', marginBottom: 12 }}>Connections</Text>
-    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}><TextInput value={targetUid} onChangeText={setTargetUid} placeholder="Enter a user's UID" style={{ flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 10 }} /><Pressable onPress={request} style={{ backgroundColor: '#111827', padding: 12, borderRadius: 8 }}><Text style={{ color: '#fff', fontWeight: '700' }}>{busy ? '…' : 'Connect'}</Text></Pressable></View>
-    {message ? <Text style={{ marginBottom: 12, color: '#374151' }}>{message}</Text> : null}
-    <Text style={{ fontSize: 18, fontWeight: '800', marginBottom: 8 }}>Pending requests</Text>
-    <FlatList data={requests} keyExtractor={(item) => item.id} ListEmptyComponent={<Text style={{ color: '#666', marginBottom: 20 }}>No pending requests.</Text>} renderItem={({ item }) => <View style={{ padding: 12, borderWidth: 1, borderColor: '#eee', borderRadius: 10, marginBottom: 8 }}><Text style={{ fontWeight: '700' }}>{item.fromUid}</Text><View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}><Pressable onPress={() => respond(item.id, 'accept')}><Text style={{ color: '#166534', fontWeight: '700' }}>Accept</Text></Pressable><Pressable onPress={() => respond(item.id, 'decline')}><Text style={{ color: '#991b1b', fontWeight: '700' }}>Decline</Text></Pressable></View></View>} />
-    <Text style={{ fontSize: 18, fontWeight: '800', marginTop: 16, marginBottom: 8 }}>Connected users</Text>
-    <FlatList data={members} keyExtractor={(item) => item.uid} renderItem={({ item }) => <Text style={{ paddingVertical: 8 }}>{item.uid}</Text>} />
-  </View>;
+  return (
+    <View style={styles.root}>
+      <Pressable onPress={() => navigation.navigate('Directory')} style={styles.find}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.findLabel}>Find people</Text>
+          <Text style={styles.findHint}>Search students, alumni and employers by name, skill or campus.</Text>
+        </View>
+        <Text style={styles.chevron}>›</Text>
+      </Pressable>
+
+      {message ? <Text style={styles.message}>{message}</Text> : null}
+
+      <Text style={styles.heading}>Pending requests</Text>
+      <FlatList
+        data={requests}
+        keyExtractor={(item) => item.id}
+        ListEmptyComponent={<Text style={styles.empty}>No pending requests.</Text>}
+        renderItem={({ item }) => (
+          <View style={styles.request}>
+            <Text style={styles.name}>{item.fromUid}</Text>
+            <View style={styles.actions}>
+              <Pressable onPress={() => respond(item.id, 'accept')}><Text style={styles.accept}>Accept</Text></Pressable>
+              <Pressable onPress={() => respond(item.id, 'decline')}><Text style={styles.decline}>Decline</Text></Pressable>
+            </View>
+          </View>
+        )}
+      />
+
+      <Text style={[styles.heading, { marginTop: 16 }]}>Connected users</Text>
+      <FlatList
+        data={members}
+        keyExtractor={(item) => item.uid}
+        ListEmptyComponent={<Text style={styles.empty}>You have no connections yet. Try Find people above.</Text>}
+        renderItem={({ item }) => <Text style={styles.member}>{item.uid}</Text>}
+      />
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1, padding: 16 },
+  find: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 16, borderWidth: 1, borderColor: '#e4e7ec', borderRadius: 14, marginBottom: 16 },
+  findLabel: { fontSize: 16, fontWeight: '800' },
+  findHint: { color: '#667085', marginTop: 3 },
+  chevron: { fontSize: 26, color: '#98a2b3' },
+  message: { marginBottom: 12, color: '#374151' },
+  heading: { fontSize: 18, fontWeight: '800', marginBottom: 8 },
+  request: { padding: 12, borderWidth: 1, borderColor: '#eee', borderRadius: 10, marginBottom: 8 },
+  name: { fontWeight: '700' },
+  actions: { flexDirection: 'row', gap: 12, marginTop: 8 },
+  accept: { color: '#166534', fontWeight: '700' },
+  decline: { color: '#991b1b', fontWeight: '700' },
+  member: { paddingVertical: 8 },
+  empty: { color: '#667085', marginBottom: 12 },
+});

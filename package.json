@@ -8,7 +8,10 @@
     "start": "react-native start",
     "typecheck": "tsc --noEmit",
     "web": "webpack serve --config web/webpack.config.js --mode development",
-    "web:build": "webpack --config web/webpack.config.js --mode production"
+    "web:build": "webpack --config web/webpack.config.js --mode production",
+    "emulators": "firebase emulators:start --only auth,firestore,functions,storage --project richfield-nexus",
+    "web:emulators": "cross-env RICHFIELD_EMULATORS=1 webpack serve --config web/webpack.config.js --mode development",
+    "seed": "cross-env FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:8081 GCLOUD_PROJECT=richfield-nexus node admin/seed-emulator.mjs"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
@@ -42,6 +45,9 @@
     "@types/react": "^19.1.11",
     "@types/react-dom": "^19.1.9",
     "babel-loader": "^10.0.0",
+    "cross-env": "^10.1.0",
+    "firebase-admin": "^13.5.0",
+    "firebase-tools": "^14.24.0",
     "html-webpack-plugin": "^5.6.4",
     "react-native-svg-transformer": "^1.5.1",
     "typescript": "^5.9.2",
