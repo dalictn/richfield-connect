@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { registerStudent } from '../auth/authService';
+import { notify } from '../ui/alert';
 
 export function StudentRegisterScreen() {
   const [displayName, setDisplayName] = useState('');
@@ -15,7 +16,7 @@ export function StudentRegisterScreen() {
       await registerStudent(email, password, displayName);
       setSent(true);
     } catch (error) {
-      Alert.alert('Registration failed', error instanceof Error ? error.message : 'Please check your details.');
+      notify('Registration failed', error instanceof Error ? error.message : 'Please check your details.');
     } finally {
       setBusy(false);
     }

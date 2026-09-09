@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Alert, Button, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Button, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from '../../auth/AuthProvider';
+import { notify } from '../../ui/alert';
 import { completeOnboarding, savePortfolio, sendProfileAssistantMessage } from '../../profile/profileService';
 import type { EditablePortfolioProfile, PortfolioProfile } from '../../types/portfolio';
 
@@ -51,7 +52,7 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
       await completeOnboarding();
       onComplete();
     } catch (error) {
-      Alert.alert('Could not complete onboarding', error instanceof Error ? error.message : 'Please try again.');
+      notify('Could not complete onboarding', error instanceof Error ? error.message : 'Please try again.');
     } finally { setSaving(false); }
   };
 

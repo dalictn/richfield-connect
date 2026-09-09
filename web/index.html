@@ -4,6 +4,47 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Richfield Connect</title>
+    <!--
+      The application palette is light-only, so opt out of the browser's dark
+      canvas. Without this, a viewer in dark mode gets inverted form controls
+      and a dark background behind light-coloured screens.
+    -->
+    <meta name="color-scheme" content="light" />
+    <style>
+      /*
+        react-native-web sizes the application container with flex: 1. Flex
+        against a parent of indeterminate height resolves to zero, so without an
+        explicit height chain from html down to #root every screen body
+        collapses and only intrinsically-sized chrome (the navigation header)
+        remains visible.
+      */
+      html,
+      body,
+      #root {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      body {
+        background-color: #f6f8fa;
+        color-scheme: light;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+          'Helvetica Neue', Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      /* react-native-web renders text nodes that should never be selected as
+         part of a drag, and inputs need the default caret behaviour back. */
+      input,
+      textarea {
+        outline-offset: 2px;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

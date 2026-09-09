@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { registerBusiness } from '../auth/authService';
+import { notify } from '../ui/alert';
 
 export function BusinessRegisterScreen() {
   const [email, setEmail] = useState('');
@@ -19,7 +20,7 @@ export function BusinessRegisterScreen() {
     try {
       await registerBusiness(email, password, { companyName, industry, description, location, website, contactName, contactPhone });
     } catch (error) {
-      Alert.alert('Registration failed', error instanceof Error ? error.message : 'Please check your details.');
+      notify('Registration failed', error instanceof Error ? error.message : 'Please check your details.');
     } finally {
       setBusy(false);
     }

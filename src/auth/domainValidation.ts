@@ -1,4 +1,6 @@
-const ALLOWED_STUDENT_DOMAINS = ['@richfield.ac.za', '@aaa.ac.za'] as const;
+// Must mirror functions/src/institutionalDomains.ts. The server is the boundary;
+// this only keeps the user from submitting a registration that cannot succeed.
+const ALLOWED_STUDENT_DOMAINS = ['@my.richfield.ac.za', '@richfield.ac.za', '@my.aaa.ac.za', '@aaa.ac.za'] as const;
 
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -17,6 +19,8 @@ export function isAllowedStudentEmail(email: string): boolean {
 
 export function assertAllowedStudentEmail(email: string): void {
   if (!isAllowedStudentEmail(email)) {
-    throw new Error('Student registration requires an email ending exactly in @richfield.ac.za or @aaa.ac.za.');
+    throw new Error(
+      `Student registration requires a Richfield or AAA institutional email ending in ${ALLOWED_STUDENT_DOMAINS.join(', ')}.`,
+    );
   }
 }

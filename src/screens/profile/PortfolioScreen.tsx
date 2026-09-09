@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Button, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Button, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useAuth } from '../../auth/AuthProvider';
+import { notify } from '../../ui/alert';
 import { savePortfolio, extractCvFromText } from '../../profile/profileService';
 import type { EditablePortfolioProfile, PortfolioProfile, VisibilityLevel } from '../../types/portfolio';
 
@@ -44,9 +45,9 @@ export function PortfolioScreen() {
     setSaving(true);
     try {
       await savePortfolio(firebaseUser.uid, form);
-      Alert.alert('Profile saved', 'Your portfolio changes are live.');
+      notify('Profile saved', 'Your portfolio changes are live.');
     } catch (error) {
-      Alert.alert('Could not save', error instanceof Error ? error.message : 'Please try again.');
+      notify('Could not save', error instanceof Error ? error.message : 'Please try again.');
     } finally {
       setSaving(false);
     }
@@ -64,9 +65,9 @@ export function PortfolioScreen() {
         qualifications: result.qualifications.length ? result.qualifications : current.qualifications,
         workExperience: result.workExperience.length ? result.workExperience : current.workExperience,
       }));
-      Alert.alert('CV analysed', `The assistant extracted profile suggestions with ${Math.round(result.confidence * 100)}% extraction confidence. Review everything before saving.`);
+      notify('CV analysed', `The assistant extracted profile suggestions with ${Math.round(result.confidence * 100)}% extraction confidence. Review everything before saving.`);
     } catch (error) {
-      Alert.alert('CV analysis failed', error instanceof Error ? error.message : 'Please try again.');
+      notify('CV analysis failed', error instanceof Error ? error.message : 'Please try again.');
     } finally {
       setExtracting(false);
     }

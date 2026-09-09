@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { beginAlumniVerification } from '../auth/authService';
+import { notify } from '../ui/alert';
 
 export function AlumniVerifyScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
@@ -15,10 +16,10 @@ export function AlumniVerifyScreen({ navigation }: any) {
       const accepted = await beginAlumniVerification(email, studentNumber, nationalId, birthdate);
       navigation.replace('AlumniPending');
       if (!accepted) {
-        Alert.alert('Check your email', 'If your details match an eligible alumni record, a verification link will be sent shortly.');
+        notify('Check your email', 'If your details match an eligible alumni record, a verification link will be sent shortly.');
       }
     } catch (error) {
-      Alert.alert('Verification unavailable', error instanceof Error ? error.message : 'Please try again later.');
+      notify('Verification unavailable', error instanceof Error ? error.message : 'Please try again later.');
     } finally {
       setBusy(false);
     }
