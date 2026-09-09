@@ -43,6 +43,7 @@ try {
   await auth.setCustomUserClaims(user.uid, {
     role: 'administrator',
     isApproved: true,
+    accountStatus: 'active',
   });
 
   await db.collection('users').doc(user.uid).set({
@@ -51,6 +52,7 @@ try {
     email,
     displayName,
     isApproved: true,
+    accountStatus: 'active',
     emailVerified: true,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),

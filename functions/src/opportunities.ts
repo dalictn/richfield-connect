@@ -1,6 +1,7 @@
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { adminAuth as auth, adminDb as db } from './firebaseAdmin';
+import { APP_CHECK_ENFORCEMENT } from './appCheck';
 
 const REGION = 'africa-south1';
 const ROLES = new Set(['student', 'alumni', 'business', 'administrator']);
@@ -48,7 +49,7 @@ function programmeSimilarity(profile: Record<string, unknown>, opportunity: Reco
   return programme && tags.includes(programme) ? 1 : 0;
 }
 
-export const createOpportunity = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const createOpportunity = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const uid = uidOf(request);
     const role = roleOf(request);
@@ -86,7 +87,7 @@ export const createOpportunity = onCall({ enforceAppCheck: true, consumeAppCheck
   }
 });
 
-export const reviewOpportunity = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const reviewOpportunity = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     adminOnly(request);
     const opportunityId = text(request.data?.opportunityId, 'Opportunity ID', 128);
@@ -106,7 +107,7 @@ export const reviewOpportunity = onCall({ enforceAppCheck: true, consumeAppCheck
   }
 });
 
-export const applyToOpportunity = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const applyToOpportunity = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const uid = uidOf(request);
     const role = roleOf(request);
@@ -133,7 +134,7 @@ export const applyToOpportunity = onCall({ enforceAppCheck: true, consumeAppChec
   }
 });
 
-export const recordOpportunityView = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const recordOpportunityView = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const uid = uidOf(request);
     const role = roleOf(request);
@@ -158,7 +159,7 @@ export const recordOpportunityView = onCall({ enforceAppCheck: true, consumeAppC
   }
 });
 
-export const recordSkillSearch = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const recordSkillSearch = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const uid = uidOf(request);
     const role = roleOf(request);
@@ -174,7 +175,7 @@ export const recordSkillSearch = onCall({ enforceAppCheck: true, consumeAppCheck
   }
 });
 
-export const recomputeOpportunityMatches = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const recomputeOpportunityMatches = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const role = roleOf(request);
     if (role !== 'administrator') throw new HttpsError('permission-denied', 'Administrator role required.');

@@ -1,7 +1,9 @@
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { createHash } from 'node:crypto';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { getMessaging, MulticastMessage } from 'firebase-admin/messaging';
 import { adminAuth, adminDb } from './firebaseAdmin';
+import { APP_CHECK_ENFORCEMENT } from './appCheck';
 
 const REGION = 'africa-south1';
 const ROLES = new Set(['student', 'alumni', 'business', 'administrator']);
@@ -50,7 +52,7 @@ async function updateClaims(uid: string, updates: Record<string, unknown>): Prom
 }
 
 export const manageUserStatus = onCall(
-  { region: REGION, enforceAppCheck: true, consumeAppCheckToken: true },
+  { region: REGION, ...APP_CHECK_ENFORCEMENT, },
   async (request) => {
     const adminUid = requireAdmin(request);
     try {
@@ -87,7 +89,7 @@ export const manageUserStatus = onCall(
 );
 
 export const moderateContent = onCall(
-  { region: REGION, enforceAppCheck: true, consumeAppCheckToken: true },
+  { region: REGION, ...APP_CHECK_ENFORCEMENT, },
   async (request) => {
     const adminUid = requireAdmin(request);
     try {
@@ -137,13 +139,23 @@ export const moderateContent = onCall(
   },
 );
 
+/**
+ * Accounts are active unless an administrator has explicitly suspended or revoked
+ * them. Querying for `accountStatus == 'active'` silently excluded every account
+ * registered before that field was written, which meant broadcasts reached nobody.
+ * Filter on the exclusions instead so a missing field reads as active, matching
+ * the Firestore rules (`activeUser()`).
+ */
+function isActiveAccount(data: FirebaseFirestore.DocumentData): boolean {
+  const status = data.accountStatus;
+  return status !== 'suspended' && status !== 'revoked';
+}
+
 async function targetUserIds(targetRole: string): Promise<string[]> {
-  if (targetRole === 'all') {
-    const snapshot = await adminDb.collection('users').where('accountStatus', '==', 'active').limit(10000).get();
-    return snapshot.docs.map((doc) => doc.id);
-  }
-  const snapshot = await adminDb.collection('users').where('role', '==', targetRole).where('accountStatus', '==', 'active').limit(10000).get();
-  return snapshot.docs.map((doc) => doc.id);
+  const base = adminDb.collection('users');
+  const query = targetRole === 'all' ? base.limit(10000) : base.where('role', '==', targetRole).limit(10000);
+  const snapshot = await query.get();
+  return snapshot.docs.filter((doc) => isActiveAccount(doc.data())).map((doc) => doc.id);
 }
 
 async function sendBroadcast(uids: string[], title: string, body: string, announcementId: string): Promise<{ sent: number; failed: number }> {
@@ -179,7 +191,7 @@ async function sendBroadcast(uids: string[], title: string, body: string, announ
 }
 
 export const broadcastAnnouncement = onCall(
-  { region: REGION, enforceAppCheck: true, consumeAppCheckToken: true },
+  { region: REGION, ...APP_CHECK_ENFORCEMENT, },
   async (request) => {
     const adminUid = requireAdmin(request);
     try {
@@ -196,6 +208,10 @@ export const broadcastAnnouncement = onCall(
         createdBy: adminUid,
         createdAt: FieldValue.serverTimestamp(),
         status: 'sent',
+        // This callable delivers its own push so it can report per-device results
+        // to the administrator. Marking the document stops notifyAnnouncement
+        // from delivering the same announcement a second time.
+        pushDeliveredBy: 'broadcastAnnouncement',
       });
 
       const uids = await targetUserIds(targetRole);
@@ -211,8 +227,100 @@ export const broadcastAnnouncement = onCall(
   },
 );
 
+const REPORTABLE_CONTENT = new Set(['post', 'comment', 'profile']);
+
+function requireActiveMember(request: AdminRequest): string {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Authentication is required.');
+  const token = request.auth?.token ?? {};
+  const role = String(token.role ?? '');
+  if (!ROLES.has(role)) throw new HttpsError('permission-denied', 'A valid platform role is required.');
+  if (role === 'business' && token.isApproved !== true) {
+    throw new HttpsError('permission-denied', 'Business account approval is required.');
+  }
+  if (token.accountStatus === 'suspended' || token.accountStatus === 'revoked') {
+    throw new HttpsError('permission-denied', 'This account is not active.');
+  }
+  return uid;
+}
+
+/**
+ * Resolves the reported content and returns the uid that authored it, or null
+ * when the content does not exist.
+ */
+async function resolveReportTarget(
+  contentType: string,
+  contentId: string,
+  parentId: string | undefined,
+): Promise<string | null> {
+  if (contentType === 'post') {
+    const snap = await adminDb.collection('posts').doc(contentId).get();
+    return snap.exists ? String(snap.data()?.uid ?? '') : null;
+  }
+  if (contentType === 'comment') {
+    if (!parentId) throw new HttpsError('invalid-argument', 'parentId is required when reporting a comment.');
+    const snap = await adminDb.collection('posts').doc(parentId).collection('comments').doc(contentId).get();
+    return snap.exists ? String(snap.data()?.uid ?? '') : null;
+  }
+  const snap = await adminDb.collection('users').doc(contentId).get();
+  return snap.exists ? contentId : null;
+}
+
+/**
+ * The producer for the administrator moderation queue.
+ *
+ * Clients cannot write moderation_flags directly (Firestore rules deny it), so
+ * without this callable the queue could never receive an item and the
+ * administrator's flagged-content metrics were permanently zero.
+ *
+ * The document id is derived from reporter + content so a user re-reporting the
+ * same item updates their existing report rather than flooding the queue. A
+ * report filed after an earlier one was resolved deliberately reopens it.
+ */
+export const reportContent = onCall(
+  { region: REGION, ...APP_CHECK_ENFORCEMENT, },
+  async (request) => {
+    const reporterUid = requireActiveMember(request);
+    try {
+      const contentType = requiredString(request.data?.contentType, 'contentType', 32);
+      if (!REPORTABLE_CONTENT.has(contentType)) throw new HttpsError('invalid-argument', 'Unsupported content type.');
+      const contentId = requiredString(request.data?.contentId, 'contentId', 256);
+      const reason = requiredString(request.data?.reason, 'reason', 500);
+      const rawParentId = request.data?.parentId;
+      const parentId = rawParentId ? requiredString(rawParentId, 'parentId', 128) : undefined;
+
+      const authorUid = await resolveReportTarget(contentType, contentId, parentId);
+      if (authorUid === null) throw new HttpsError('not-found', 'The reported content no longer exists.');
+      if (authorUid === reporterUid) throw new HttpsError('failed-precondition', 'You cannot report your own content.');
+
+      const flagId = createHash('sha256').update(`${reporterUid}|${contentType}|${contentId}`).digest('hex');
+      const flagRef = adminDb.collection('moderation_flags').doc(flagId);
+      const existing = await flagRef.get();
+      if (existing.exists && existing.data()?.status === 'open') {
+        return { ok: true, flagId, alreadyReported: true };
+      }
+
+      await flagRef.set({
+        contentType,
+        contentId,
+        parentId: parentId ?? null,
+        authorUid,
+        reason,
+        reportedBy: reporterUid,
+        status: 'open',
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      return { ok: true, flagId, alreadyReported: false };
+    } catch (error) {
+      if (error instanceof HttpsError) throw error;
+      console.error('reportContent failed', error);
+      throw new HttpsError('internal', 'Unable to submit this report.');
+    }
+  },
+);
+
 export const listAdminUsers = onCall(
-  { region: REGION, enforceAppCheck: true, consumeAppCheckToken: true },
+  { region: REGION, ...APP_CHECK_ENFORCEMENT, },
   async (request) => {
     requireAdmin(request);
     try {
@@ -234,7 +342,7 @@ export const listAdminUsers = onCall(
 );
 
 export const listModerationQueue = onCall(
-  { region: REGION, enforceAppCheck: true, consumeAppCheckToken: true },
+  { region: REGION, ...APP_CHECK_ENFORCEMENT, },
   async (request) => {
     requireAdmin(request);
     try {

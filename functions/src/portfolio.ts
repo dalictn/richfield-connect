@@ -1,6 +1,8 @@
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { adminAuth as auth, adminDb as db } from './firebaseAdmin';
+import { redactProfile, type ProfileRole } from './profileVisibility';
+import { APP_CHECK_ENFORCEMENT } from './appCheck';
 
 const REGION = 'africa-south1';
 const ALLOWED_CAMPUS = new Set(['Durban', 'Johannesburg', 'Cape Town', 'Pretoria', 'Distance Learning']);
@@ -66,7 +68,7 @@ function validateExperience(value: unknown): Array<{ company: string; role: stri
   });
 }
 
-export const upsertPortfolioProfile = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const upsertPortfolioProfile = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const uid = requireSignedIn(request);
     const snapshot = await db.collection('users').doc(uid).get();
@@ -106,7 +108,7 @@ export const upsertPortfolioProfile = onCall({ enforceAppCheck: true, consumeApp
 
 
 
-export const completeOnboarding = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const completeOnboarding = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const uid = requireSignedIn(request);
     await db.collection('users').doc(uid).set({ onboardingComplete: true, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
@@ -118,7 +120,7 @@ export const completeOnboarding = onCall({ enforceAppCheck: true, consumeAppChec
   }
 });
 
-export const getVisibleProfile = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const getVisibleProfile = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const viewerUid = requireSignedIn(request);
     const targetUid = text(request.data?.targetUid, 'Target user', 128, true);
@@ -127,32 +129,13 @@ export const getVisibleProfile = onCall({ enforceAppCheck: true, consumeAppCheck
     const target = targetSnap.data() ?? {};
     if (targetUid === viewerUid || request.auth?.token?.role === 'administrator') return target;
 
-    let connected = false;
+    // A connections/{uid}/members/{viewerUid} document is only ever written when a
+    // connection request is accepted, so its existence is the connection. Do not
+    // additionally require a status field here: membership documents created
+    // before that field existed would silently fail the check.
     const connectionSnap = await db.collection('connections').doc(targetUid).collection('members').doc(viewerUid).get();
-    connected = connectionSnap.exists && connectionSnap.data()?.status === 'accepted';
-    const visibility = (target.visibility ?? {}) as Record<string, unknown>;
-    const canSee = (field: string) => visibility[field] === 'public' || (visibility[field] === 'connections' && connected);
-
-    return {
-      uid: target.uid,
-      role: target.role,
-      displayName: target.displayName,
-      headline: target.headline,
-      summary: target.summary,
-      campusLocation: target.campusLocation,
-      avatarUrl: target.avatarUrl,
-      skills: canSee('skills') ? target.skills : [],
-      workExperience: canSee('experience') ? target.workExperience : [],
-      qualifications: canSee('academicRecords') ? target.qualifications : [],
-      gitHubUrl: target.gitHubUrl,
-      linkedInUrl: target.linkedInUrl,
-      portfolioUrl: target.portfolioUrl,
-      companyName: target.companyName,
-      industry: target.industry,
-      studentNumber: undefined,
-      email: canSee('contactInfo') ? target.email : undefined,
-      endorsements: target.endorsements ?? [],
-    };
+    const viewerRole = String(request.auth?.token?.role ?? 'student') as ProfileRole;
+    return redactProfile(target, { role: viewerRole, connected: connectionSnap.exists });
   } catch (error) {
     if (error instanceof HttpsError) throw error;
     console.error('getVisibleProfile failed', error);
@@ -160,7 +143,7 @@ export const getVisibleProfile = onCall({ enforceAppCheck: true, consumeAppCheck
   }
 });
 
-export const endorseSkill = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const endorseSkill = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const uid = requireSignedIn(request);
     const targetUid = text(request.data?.targetUid, 'Target user', 128, true);
@@ -192,7 +175,7 @@ export const endorseSkill = onCall({ enforceAppCheck: true, consumeAppCheckToken
   }
 });
 
-export const evaluateProfileCompleteness = onCall({ enforceAppCheck: true, consumeAppCheckToken: true, region: REGION }, async (request) => {
+export const evaluateProfileCompleteness = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const callerUid = requireSignedIn(request);
     const requestedUid = String(request.data?.uid ?? callerUid);

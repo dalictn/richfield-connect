@@ -2,6 +2,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { adminAuth as auth, adminDb as db } from './firebaseAdmin';
 import { createHash, randomBytes } from 'node:crypto';
+import { APP_CHECK_ENFORCEMENT } from './appCheck';
 
 const REGISTRY = 'alumni_registry';
 const SESSIONS = 'alumni_verification_sessions';
@@ -119,8 +120,7 @@ function assertInput(data: unknown): AlumniInput {
  */
 export const verifyAlumniCredentials = onCall(
   {
-    enforceAppCheck: true,
-    consumeAppCheckToken: true,
+    ...APP_CHECK_ENFORCEMENT,
     region: 'africa-south1',
   },
   async (request) => {
@@ -213,7 +213,7 @@ export const verifyAlumniCredentials = onCall(
 );
 
 export const finalizeAlumniRegistration = onCall(
-  { enforceAppCheck: true, consumeAppCheckToken: true, region: 'africa-south1' },
+  { ...APP_CHECK_ENFORCEMENT, region: 'africa-south1' },
   async (request) => {
     try {
       if (!request.auth?.uid) {
@@ -267,6 +267,7 @@ export const finalizeAlumniRegistration = onCall(
             displayName: String(registry.fullName ?? ''),
             studentNumber: String(registry.studentNumber ?? ''),
             isApproved: true,
+            accountStatus: 'active',
             emailVerified: true,
             createdAt: FieldValue.serverTimestamp(),
             updatedAt: FieldValue.serverTimestamp(),
@@ -286,6 +287,7 @@ export const finalizeAlumniRegistration = onCall(
       await auth.setCustomUserClaims(request.auth.uid, {
         role: 'alumni',
         isApproved: true,
+        accountStatus: 'active',
       });
 
       return { ok: true };
