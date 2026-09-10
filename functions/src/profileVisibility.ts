@@ -116,17 +116,16 @@ export function canSeeSection(
   return false;
 }
 
-function sectionOr<T>(target: Record<string, unknown>, section: ProfileSection, viewer: Viewer, fallback: T): T {
-  return canSeeSection(target, section, viewer) ? ((target[sectionField(section)] as T) ?? fallback) : fallback;
-}
-
-/** Maps a visibility section to the profile field it guards, where they differ. */
-function sectionField(section: ProfileSection): string {
-  switch (section) {
-    case 'experience': return 'workExperience';
-    case 'academicRecords': return 'qualifications';
-    default: return section;
-  }
+/** Returns the field only when the guarding section is visible to this viewer. */
+function gated(
+  target: Record<string, unknown>,
+  section: ProfileSection,
+  viewer: Viewer,
+  field: string,
+): unknown[] {
+  if (!canSeeSection(target, section, viewer)) return [];
+  const value = target[field];
+  return Array.isArray(value) ? value : [];
 }
 
 /**
@@ -138,7 +137,10 @@ export function redactProfile(
 ): Record<string, unknown> {
   const academic = canSeeSection(target, 'academicRecords', viewer);
   const projects = canSeeSection(target, 'projects', viewer);
-  const activities = canSeeSection(target, 'activities', viewer);
+  const activitiesVisible = canSeeSection(target, 'activities', viewer);
+  const interests = canSeeSection(target, 'careerInterests', viewer);
+  const badgesVisible = canSeeSection(target, 'badges', viewer);
+  const contact = canSeeSection(target, 'contactInfo', viewer);
 
   return {
     uid: target.uid,
@@ -153,28 +155,29 @@ export function redactProfile(
     yearOfEnrolment: target.yearOfEnrolment,
     graduationYear: target.graduationYear,
 
-    skills: sectionOr(target, 'skills', viewer, [] as unknown[]),
-    workExperience: sectionOr(target, 'experience', viewer, [] as unknown[]),
-    qualifications: academic ? target.qualifications ?? [] : [],
-    certifications: academic ? target.certifications ?? [] : [],
-    achievements: academic ? target.achievements ?? [] : [],
+    skills: gated(target, 'skills', viewer, 'skills'),
+    endorsements: gated(target, 'skills', viewer, 'endorsements'),
+    workExperience: gated(target, 'experience', viewer, 'workExperience'),
+    qualifications: academic ? gated(target, 'academicRecords', viewer, 'qualifications') : [],
+    certifications: academic ? gated(target, 'academicRecords', viewer, 'certifications') : [],
+    achievements: academic ? gated(target, 'academicRecords', viewer, 'achievements') : [],
 
-    gitHubProjects: projects ? target.gitHubProjects ?? [] : [],
-    deployedProjects: projects ? target.deployedProjects ?? [] : [],
-    entrepreneurialExperience: sectionOr(target, 'entrepreneurship', viewer, [] as unknown[]),
+    gitHubProjects: projects ? gated(target, 'projects', viewer, 'gitHubProjects') : [],
+    deployedProjects: projects ? gated(target, 'projects', viewer, 'deployedProjects') : [],
+    entrepreneurialExperience: gated(target, 'entrepreneurship', viewer, 'entrepreneurialExperience'),
 
-    leadershipRoles: activities ? target.leadershipRoles ?? [] : [],
-    activities: activities ? target.activities ?? [] : [],
+    leadershipRoles: activitiesVisible ? gated(target, 'activities', viewer, 'leadershipRoles') : [],
+    activities: activitiesVisible ? gated(target, 'activities', viewer, 'activities') : [],
 
-    digitalBadges: sectionOr(target, 'badges', viewer, [] as unknown[]),
-    careerInterests: sectionOr(target, 'careerInterests', viewer, [] as unknown[]),
-    careerAspirations: canSeeSection(target, 'careerInterests', viewer) ? target.careerAspirations : undefined,
+    digitalBadges: gated(target, 'badges', viewer, 'digitalBadges'),
+    careerInterests: gated(target, 'careerInterests', viewer, 'careerInterests'),
+    careerAspirations: interests ? target.careerAspirations : undefined,
 
     gitHubUrl: target.gitHubUrl,
     linkedInUrl: target.linkedInUrl,
     portfolioUrl: target.portfolioUrl,
-    credlyUrl: canSeeSection(target, 'badges', viewer) ? target.credlyUrl : undefined,
-    resumeUrl: canSeeSection(target, 'contactInfo', viewer) ? target.resumeUrl : undefined,
+    credlyUrl: badgesVisible ? target.credlyUrl : undefined,
+    resumeUrl: contact ? target.resumeUrl : undefined,
 
     companyName: target.companyName,
     industry: target.industry,
@@ -186,9 +189,8 @@ export function redactProfile(
     // Never leaves the server: a student number identifies a person against the
     // institutional registry and is not a networking field.
     studentNumber: undefined,
-    email: canSeeSection(target, 'contactInfo', viewer) ? target.email : undefined,
-    contactPhone: canSeeSection(target, 'contactInfo', viewer) ? target.contactPhone : undefined,
-    endorsements: sectionOr(target, 'skills', viewer, [] as unknown[]),
+    email: contact ? target.email : undefined,
+    contactPhone: contact ? target.contactPhone : undefined,
   };
 }
 

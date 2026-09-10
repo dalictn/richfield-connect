@@ -24,6 +24,14 @@ service cloud.firestore {
       allow update: if isOwner(uid) && sameImmutableUserFields();
       allow delete: if false;
       match /devices/{deviceId} { allow read, write: if false; }
+      // Recommendations others have left on this profile. The owner and
+      // administrators may read them directly; everyone else receives them
+      // through getVisibleProfile, which applies the profile's visibility
+      // settings first. All writes go through callables.
+      match /recommendations/{authorUid} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow write: if false;
+      }
     }
 
     match /alumni_registry/{recordId} { allow read, write: if false; }

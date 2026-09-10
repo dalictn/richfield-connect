@@ -1,5 +1,6 @@
 import { callFunction, subscribeUserProfile } from '../firebaseApi';
-import type { CvExtractionResult, EditablePortfolioProfile, PortfolioProfile, ProfileAssistantMessage, ProfileCompleteness } from '../types/portfolio';
+import type { CvExtractionResult, EditablePortfolioProfile, PortfolioProfile, ProfileAssistantMessage, ProfileCompleteness, VisibleProfile } from '../types/portfolio';
+import { normaliseVisibility } from '../types/portfolio';
 
 export class ProfileDomainError extends Error {
   readonly code: string;
@@ -19,22 +20,20 @@ function assertText(value: unknown, field: string, maxLength: number): string {
 function normaliseProfilePatch(patch: EditablePortfolioProfile): EditablePortfolioProfile {
   const skills = Array.from(new Set(patch.skills.map((skill) => skill.trim().toLowerCase()).filter(Boolean))).slice(0, 50);
   if (skills.some((skill) => skill.length > 80)) throw new ProfileDomainError('invalid-argument', 'Each skill must be 80 characters or fewer.');
-  if (patch.qualifications.length > 20 || patch.workExperience.length > 20) throw new ProfileDomainError('invalid-argument', 'Too many portfolio entries.');
+  if (patch.qualifications.length > 20 || patch.workExperience.length > 20) {
+    throw new ProfileDomainError('invalid-argument', 'Too many portfolio entries.');
+  }
+  // Deliberately a pass-through for the structured lists: the callable owns
+  // validation, and duplicating those rules here only creates two places for
+  // them to drift. This trims the cheap things and normalises visibility.
   return {
     ...patch,
     displayName: assertText(patch.displayName, 'Display name', 120),
     headline: assertText(patch.headline, 'Headline', 180),
     summary: assertText(patch.summary, 'Summary', 2000),
-    studentNumber: patch.studentNumber ? assertText(patch.studentNumber, 'Student number', 60) : undefined,
-    companyName: patch.companyName ? assertText(patch.companyName, 'Company name', 160) : undefined,
-    industry: patch.industry ? assertText(patch.industry, 'Industry', 120) : undefined,
     skills,
-    gitHubUrl: patch.gitHubUrl ? assertText(patch.gitHubUrl, 'GitHub URL', 500) : undefined,
-    linkedInUrl: patch.linkedInUrl ? assertText(patch.linkedInUrl, 'LinkedIn URL', 500) : undefined,
-    portfolioUrl: patch.portfolioUrl ? assertText(patch.portfolioUrl, 'Portfolio URL', 500) : undefined,
-    avatarUrl: assertText(patch.avatarUrl, 'Avatar URL', 1000),
-    resumeUrl: patch.resumeUrl ? assertText(patch.resumeUrl, 'Resume URL', 1000) : undefined,
-    visibility: patch.visibility,
+    careerInterests: Array.from(new Set((patch.careerInterests ?? []).map((item) => item.trim().toLowerCase()).filter(Boolean))).slice(0, 20),
+    visibility: normaliseVisibility(patch.visibility),
   };
 }
 
@@ -92,9 +91,9 @@ export async function extractCvFromText(text: string): Promise<CvExtractionResul
   }
 }
 
-export async function getVisibleProfile(targetUid: string): Promise<Partial<PortfolioProfile>> {
+export async function getVisibleProfile(targetUid: string): Promise<VisibleProfile> {
   try {
-    return await callFunction<{ targetUid: string }, Partial<PortfolioProfile>>('getVisibleProfile', { targetUid });
+    return await callFunction<{ targetUid: string }, VisibleProfile>('getVisibleProfile', { targetUid });
   } catch (error) {
     console.error('getVisibleProfile failed', error);
     throw new ProfileDomainError('profile-read-failed', 'We could not load this profile.');
@@ -115,5 +114,29 @@ export async function sendProfileAssistantMessage(uid: string, message: string, 
     if (error instanceof ProfileDomainError) throw error;
     console.error('sendProfileAssistantMessage failed', error);
     throw new ProfileDomainError('assistant-failed', 'The profile assistant is temporarily unavailable.');
+  }
+}
+
+export async function writeRecommendation(targetUid: string, relationship: string, body: string): Promise<{ updated: boolean }> {
+  const text = body.trim();
+  if (text.length < 40) throw new ProfileDomainError('invalid-recommendation', 'A recommendation must be at least 40 characters.');
+  if (text.length > 2000) throw new ProfileDomainError('invalid-recommendation', 'A recommendation must be 2,000 characters or fewer.');
+  try {
+    return await callFunction<{ targetUid: string; relationship: string; body: string }, { ok: true; updated: boolean }>(
+      'writeRecommendation', { targetUid, relationship: relationship.trim(), body: text },
+    );
+  } catch (error) {
+    if (error instanceof ProfileDomainError) throw error;
+    console.error('writeRecommendation failed', error);
+    throw new ProfileDomainError('recommendation-failed', 'We could not save this recommendation.');
+  }
+}
+
+export async function removeRecommendation(targetUid: string, authorUid: string): Promise<void> {
+  try {
+    await callFunction<{ targetUid: string; authorUid: string }, { ok: true }>('removeRecommendation', { targetUid, authorUid });
+  } catch (error) {
+    console.error('removeRecommendation failed', error);
+    throw new ProfileDomainError('recommendation-failed', 'We could not remove this recommendation.');
   }
 }

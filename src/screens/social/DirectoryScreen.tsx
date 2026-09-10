@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { searchDirectory } from '../../directory/directoryService';
+import type { ConnectionsStackParamList } from '../../navigation/ConnectionsStack';
 import { createConnectionRequest, respondToConnectionRequest } from '../../social/socialService';
 import type { DirectoryCard } from '../../types/directory';
 
@@ -25,7 +28,10 @@ const ROLE_LABEL: Record<string, string> = {
  * required. Results are redacted server-side, so a card only shows the skills a
  * member has actually chosen to expose to this viewer.
  */
+type Navigation = NativeStackNavigationProp<ConnectionsStackParamList, 'Directory'>;
+
 export function DirectoryScreen() {
+  const navigation = useNavigation<Navigation>();
   const [term, setTerm] = useState('');
   const [skill, setSkill] = useState('');
   const [role, setRole] = useState<'student' | 'alumni' | 'business' | undefined>(undefined);
@@ -122,7 +128,10 @@ export function DirectoryScreen() {
           renderItem={({ item }) => (
             <View style={styles.card}>
               <View style={styles.cardTop}>
-                <View style={{ flex: 1 }}>
+                <Pressable
+                  style={{ flex: 1 }}
+                  onPress={() => navigation.navigate('Profile', { targetUid: item.uid, title: item.displayName })}
+                >
                   <Text style={styles.name}>{item.displayName || 'Richfield member'}</Text>
                   <Text style={styles.meta}>
                     {ROLE_LABEL[item.role] ?? item.role}
@@ -130,7 +139,8 @@ export function DirectoryScreen() {
                     {item.campusLocation ? ` · ${item.campusLocation}` : ''}
                   </Text>
                   {item.headline ? <Text style={styles.headline}>{item.headline}</Text> : null}
-                </View>
+                  <Text style={styles.viewHint}>View profile ›</Text>
+                </Pressable>
                 {action(item)}
               </View>
               {item.skills.length ? (
@@ -165,6 +175,7 @@ const styles = StyleSheet.create({
   name: { fontSize: 16, fontWeight: '800' },
   meta: { color: '#667085', marginTop: 3 },
   headline: { marginTop: 6, lineHeight: 20 },
+  viewHint: { marginTop: 8, color: '#175cd3', fontWeight: '700', fontSize: 12 },
   skills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
   skill: { backgroundColor: '#f2f4f7', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14 },
   skillText: { fontSize: 12 },
