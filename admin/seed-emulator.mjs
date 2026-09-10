@@ -29,6 +29,23 @@ const auth = admin.auth();
 const db = admin.firestore();
 const now = admin.firestore.FieldValue.serverTimestamp();
 
+const OPEN = { public: true, connections: true, students: true, alumni: true, business: true };
+const CLOSED = { public: false, connections: false, students: false, alumni: false, business: false };
+const CONNECTIONS = { ...CLOSED, connections: true };
+
+const DEFAULT_VISIBILITY = {
+  skills: { ...OPEN },
+  projects: { ...OPEN },
+  careerInterests: { ...OPEN },
+  badges: { ...OPEN },
+  recommendations: { ...OPEN },
+  experience: { ...CONNECTIONS, business: true },
+  entrepreneurship: { ...CONNECTIONS, business: true },
+  academicRecords: { ...CONNECTIONS },
+  activities: { ...CONNECTIONS },
+  contactInfo: { ...CONNECTIONS },
+};
+
 async function upsertUser({ email, displayName, role, isApproved = true, profile = {} }) {
   let user;
   try {
@@ -49,7 +66,7 @@ async function upsertUser({ email, displayName, role, isApproved = true, profile
     accountStatus: 'active',
     emailVerified: true,
     onboardingComplete: true,
-    visibility: { skills: 'public', experience: 'connections', contactInfo: 'connections', academicRecords: 'connections' },
+    visibility: DEFAULT_VISIBILITY,
     createdAt: now,
     updatedAt: now,
     lastActiveAt: now,
@@ -72,6 +89,36 @@ const students = [
       skills: ['react native', 'typescript', 'firebase', 'node.js'],
       gitHubUrl: 'https://github.com/example-thabo',
       linkedInUrl: 'https://linkedin.com/in/example-thabo',
+      credlyUrl: 'https://www.credly.com/users/example-thabo',
+      careerInterests: ['mobile engineering', 'fintech', 'developer tooling'],
+      careerAspirations: 'Join a product team building consumer fintech, and mentor first-year students along the way.',
+      certifications: [
+        { name: 'AWS Certified Cloud Practitioner', issuer: 'Amazon Web Services', year: 2025 },
+      ],
+      gitHubProjects: [
+        { name: 'campus-timetable', url: 'https://github.com/example-thabo/campus-timetable', description: 'Offline-first timetable app used by 300 students.' },
+        { name: 'stokvel-ledger', url: 'https://github.com/example-thabo/stokvel-ledger', description: 'Shared savings ledger with reconciliation.' },
+      ],
+      deployedProjects: [
+        { name: 'Richfield Society Hub', url: 'https://example-society-hub.web.app', description: 'Event listing site for campus societies.' },
+      ],
+      digitalBadges: [
+        { name: 'Firebase Fundamentals', issuer: 'Google', issuedYear: 2025, url: 'https://www.credly.com/badges/example' },
+      ],
+      achievements: [
+        { title: 'Dean\u2019s Merit List', issuer: 'Richfield', year: 2025, description: 'Top 5% of the programme cohort.' },
+      ],
+      leadershipRoles: [
+        { role: 'Class Representative', organisation: 'BSc IT, Johannesburg campus', startYear: 2025, description: 'Represents 120 students in faculty meetings.' },
+      ],
+      activities: [
+        { name: 'Richfield Hackathon 2026', type: 'hackathon', year: 2026 },
+        { name: 'Coding Society', type: 'society', year: 2024 },
+        { name: 'Code for Community', type: 'volunteer', year: 2025, description: 'Weekend coding classes for local high schools.' },
+      ],
+      entrepreneurialExperience: [
+        { name: 'Nkosi Digital', role: 'Founder', description: 'Freelance studio building websites for small Johannesburg businesses.', startYear: 2024, url: 'https://example-nkosi.digital' },
+      ],
     },
   },
   {
@@ -109,7 +156,13 @@ async function main() {
       programmeOfStudy: 'BSc Information Technology',
       studentNumber: 'RF2018001',
       skills: ['java', 'spring boot', 'sql', 'react native'],
-      workExperience: [{ company: 'Standard Bank', role: 'Software Engineer', startDate: '2021-03', description: 'Payments platform engineering.' }],
+      workExperience: [
+        { company: 'Standard Bank', role: 'Software Engineer', startDate: '2021-03', description: 'Payments platform engineering.' },
+        { company: 'Dimension Data', role: 'Graduate Developer', startDate: '2019-02', endDate: '2021-02', description: 'Internal tooling and integrations.' },
+      ],
+      graduationYear: 2021,
+      yearOfEnrolment: 2018,
+      careerInterests: ['payments', 'platform engineering', 'mentorship'],
     },
   });
 
@@ -185,6 +238,18 @@ async function main() {
     await db.collection('skill_demand').doc(skill).set({ skill, count, lastSearchedAt: now, lastSearchedBy: businessUid });
   }
 
+  // A recommendation from the alumna to the student, so the section renders.
+  await db.collection('users').doc(studentUids[0]).collection('recommendations').doc(alumniUid).set({
+    authorUid: alumniUid,
+    authorName: 'Lerato Mokoena',
+    authorHeadline: 'Software Engineer at Standard Bank | Richfield alumna',
+    authorRole: 'alumni',
+    relationship: 'Mentor',
+    body: 'I mentored Thabo through the 2025 hackathon. He shipped a working offline-first app in a weekend and, more tellingly, was the person the rest of the team went to when they were stuck. He would do well on any graduate mobile team.',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+
   console.log('Seeded accounts — every one uses the same password:\n');
   const rows = [
     ['Student', 'thabo@my.richfield.ac.za', studentUids[0]],
@@ -198,7 +263,9 @@ async function main() {
   }
   console.log(`\n  Password: ${PASSWORD}`);
   console.log('\nAlso seeded: 1 alumni registry record (student number RF2018001),');
-  console.log('2 opportunities (1 pending approval, 1 live), and 5 skill-demand rows.');
+  console.log('2 opportunities (1 pending approval, 1 live), 5 skill-demand rows,');
+  console.log('a full portfolio for Thabo (projects, certifications, badges, awards,');
+  console.log('leadership, societies, venture) and 1 recommendation from Lerato.');
 }
 
 main().then(() => process.exit(0)).catch((error) => {

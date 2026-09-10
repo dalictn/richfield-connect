@@ -8,7 +8,7 @@ import { APP_CHECK_ENFORCEMENT } from './appCheck';
 const REGION = 'africa-south1';
 const ROLES = new Set(['student', 'alumni', 'business', 'administrator']);
 const STATUSES = new Set(['active', 'suspended', 'revoked']);
-const MODERATION_TYPES = new Set(['post', 'comment', 'profile']);
+const MODERATION_TYPES = new Set(['post', 'comment', 'profile', 'recommendation']);
 const MODERATION_ACTIONS = new Set(['dismiss', 'delete']);
 const BROADCAST_ROLES = new Set(['all', 'student', 'alumni', 'business']);
 
@@ -115,6 +115,9 @@ export const moderateContent = onCall(
         } else if (contentType === 'comment') {
           const postId = requiredString(flag.parentId, 'parentId', 128);
           batch.delete(adminDb.collection('posts').doc(postId).collection('comments').doc(contentId));
+        } else if (contentType === 'recommendation') {
+          const profileUid = requiredString(flag.parentId, 'parentId', 128);
+          batch.delete(adminDb.collection('users').doc(profileUid).collection('recommendations').doc(contentId));
         } else {
           batch.update(adminDb.collection('users').doc(contentId), {
             profileVisibility: 'private',
@@ -227,7 +230,7 @@ export const broadcastAnnouncement = onCall(
   },
 );
 
-const REPORTABLE_CONTENT = new Set(['post', 'comment', 'profile']);
+const REPORTABLE_CONTENT = new Set(['post', 'comment', 'profile', 'recommendation']);
 
 function requireActiveMember(request: AdminRequest): string {
   const uid = request.auth?.uid;
@@ -261,6 +264,12 @@ async function resolveReportTarget(
     if (!parentId) throw new HttpsError('invalid-argument', 'parentId is required when reporting a comment.');
     const snap = await adminDb.collection('posts').doc(parentId).collection('comments').doc(contentId).get();
     return snap.exists ? String(snap.data()?.uid ?? '') : null;
+  }
+  if (contentType === 'recommendation') {
+    // contentId is the author's uid; parentId is the profile it sits on.
+    if (!parentId) throw new HttpsError('invalid-argument', 'parentId is required when reporting a recommendation.');
+    const snap = await adminDb.collection('users').doc(parentId).collection('recommendations').doc(contentId).get();
+    return snap.exists ? contentId : null;
   }
   const snap = await adminDb.collection('users').doc(contentId).get();
   return snap.exists ? contentId : null;
