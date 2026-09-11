@@ -11,7 +11,8 @@
     "web:build": "webpack --config web/webpack.config.js --mode production",
     "emulators": "firebase emulators:start --only auth,firestore,functions,storage --project richfield-nexus",
     "web:emulators": "cross-env RICHFIELD_EMULATORS=1 webpack serve --config web/webpack.config.js --mode development",
-    "seed": "cross-env FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:8081 GCLOUD_PROJECT=richfield-nexus node admin/seed-emulator.mjs"
+    "seed": "cross-env FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:8081 GCLOUD_PROJECT=richfield-nexus node admin/seed.mjs",
+    "seed:production": "cross-env GCLOUD_PROJECT=richfield-nexus node admin/seed.mjs --production"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",

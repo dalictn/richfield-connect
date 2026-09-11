@@ -172,6 +172,67 @@ before demoing the alumni flow, or no alumnus can verify.
 
 ---
 
+## C. Shared live preview
+
+A public URL anyone can open, backed by the real project. Steps 1–5 are console
+and billing actions that only a project owner can perform.
+
+```bash
+# 1. Authenticate (opens a browser)
+npx firebase login
+npx firebase use richfield-nexus
+```
+
+**2–5, in the Firebase console (once):**
+
+- [ ] Upgrade the project to **Blaze**. Functions v2 cannot deploy on Spark.
+- [ ] Upgrade Authentication to **Identity Platform** (needed for the
+      `beforeUserCreated` blocking trigger, which is the student-domain boundary).
+- [ ] Enable **Email/Password** and **Email link** sign-in.
+- [ ] App Check → register the **web app** with **reCAPTCHA v3**, and copy the
+      site key. Without it the deployed site cannot call a single function.
+
+```bash
+# 6. Provider secret for the assistant and CV extraction
+npx firebase functions:secrets:set AI_API_KEY
+
+# 7. Build and deploy the backend
+cd functions && npm install && npm run build && cd ..
+npx firebase deploy --only functions,firestore:rules,firestore:indexes,storage
+
+# 8. Build the web bundle WITH the App Check site key, then ship it
+RICHFIELD_APP_CHECK_SITE_KEY=<your reCAPTCHA v3 site key> npm run web:build
+npx firebase deploy --only hosting
+```
+
+The preview lands at `https://richfield-nexus.web.app`.
+
+```bash
+# 9. Demo accounts. Download a service-account key:
+#    console -> Project settings -> Service accounts -> Generate new private key
+export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+npm run seed:production
+```
+
+`seed:production` refuses to run if any emulator host variable is set, and
+refuses without admin credentials, so it cannot redirect by accident. Override
+the shared password with `SEED_PASSWORD=…` if you would rather not use the
+default.
+
+> These demo accounts are usable by anyone who finds the URL. That is fine for a
+> presentation; delete them afterwards, or keep the preview unlisted.
+
+### Preview channels
+
+For a throwaway URL that expires rather than touching the live site:
+
+```bash
+npx firebase hosting:channel:deploy demo --expires 7d
+```
+
+Functions, Firestore and Auth are still shared with the live project — only the
+static bundle is separate.
+
 ## Post-deploy smoke test
 
 Work through these in order; each depends on the previous.

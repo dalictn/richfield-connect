@@ -1,30 +1,51 @@
 /**
- * Seeds the Firebase Emulator Suite with one account per role, plus enough
- * supporting data that every screen has something to show.
+ * Seeds one account per role plus enough supporting data that every screen has
+ * something to show.
  *
- * This talks to the emulators only — it refuses to run unless the emulator host
- * variables are set, so it can never touch a real project. Accounts are created
- * with the Admin SDK rather than through the registration callables, so seeding
- * works even when the Functions emulator is not running. The real registration
- * flow stays available to demo separately.
+ * Two targets:
+ *   npm run seed              -> the Firebase Emulator Suite (safe, in-memory)
+ *   npm run seed:production   -> the live project, for a shared demo preview
  *
- *   npm run seed
+ * Production seeding is deliberately awkward to trigger by accident: it needs
+ * the --production flag AND application-default or service-account credentials,
+ * and it refuses to run if emulator host variables are set, so a stray shell
+ * export cannot silently redirect it.
+ *
+ * Accounts are created with the Admin SDK rather than through the registration
+ * callables, so seeding works without the Functions emulator and bypasses the
+ * institutional-domain blocking trigger for the non-student demo accounts. The
+ * real registration flow stays available to demo separately.
  */
 import admin from 'firebase-admin';
 
+const PRODUCTION = process.argv.includes('--production');
 const AUTH_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST;
 const STORE_HOST = process.env.FIRESTORE_EMULATOR_HOST;
+const PROJECT_ID = process.env.GCLOUD_PROJECT || 'richfield-nexus';
 
-if (!AUTH_HOST || !STORE_HOST) {
+if (PRODUCTION) {
+  if (AUTH_HOST || STORE_HOST) {
+    console.error('Refusing to run: --production was passed but emulator host variables are set.');
+    console.error('Unset FIREBASE_AUTH_EMULATOR_HOST and FIRESTORE_EMULATOR_HOST first.');
+    process.exit(1);
+  }
+  if (!process.env.GOOGLE_APPLICATION_CREDENTIALS && !process.env.GOOGLE_CLOUD_PROJECT) {
+    console.error('Refusing to run: no admin credentials found.');
+    console.error('Set GOOGLE_APPLICATION_CREDENTIALS to a service-account JSON downloaded from');
+    console.error('Firebase console -> Project settings -> Service accounts -> Generate new private key.');
+    process.exit(1);
+  }
+  console.warn(`\n  ! Seeding the LIVE project "${PROJECT_ID}" with demo accounts.`);
+  console.warn('  ! These credentials are shared and publicly usable. Remove them after the demo.\n');
+} else if (!AUTH_HOST || !STORE_HOST) {
   console.error('Refusing to run: FIREBASE_AUTH_EMULATOR_HOST and FIRESTORE_EMULATOR_HOST must be set.');
-  console.error('Use `npm run seed`, which sets them for you.');
+  console.error('Use `npm run seed`, or pass --production to target the live project.');
   process.exit(1);
 }
 
-const PROJECT_ID = process.env.GCLOUD_PROJECT || 'richfield-nexus';
-const PASSWORD = 'Richfield#2026';
+const PASSWORD = process.env.SEED_PASSWORD || 'Richfield#2026';
 
-admin.initializeApp({ projectId: PROJECT_ID });
+admin.initializeApp(PRODUCTION ? { projectId: PROJECT_ID } : { projectId: PROJECT_ID });
 const auth = admin.auth();
 const db = admin.firestore();
 const now = admin.firestore.FieldValue.serverTimestamp();
@@ -138,7 +159,7 @@ const students = [
 ];
 
 async function main() {
-  console.log(`Seeding emulators for project "${PROJECT_ID}"…\n`);
+  console.log(`Seeding ${PRODUCTION ? 'LIVE PROJECT' : 'emulators'} "${PROJECT_ID}"…\n`);
 
   const studentUids = [];
   for (const student of students) {
