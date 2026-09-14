@@ -32,6 +32,13 @@ service cloud.firestore {
         allow read: if isOwner(uid) || isAdmin();
         allow write: if false;
       }
+      // In-app notifications. The owner can read them and flip `read`, nothing else;
+      // entries are only ever created by Cloud Functions.
+      match /notifications/{notificationId} {
+        allow read: if isOwner(uid);
+        allow update: if isOwner(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+        allow create, delete: if false;
+      }
     }
 
     match /alumni_registry/{recordId} { allow read, write: if false; }
@@ -76,6 +83,17 @@ service cloud.firestore {
     match /announcements/{announcementId} {
       allow read: if activeUser() && (resource.data.targetRole == 'all' || resource.data.targetRole == request.auth.token.role || isAdmin());
       allow write: if false;
+    }
+
+    // Institutional events. Members see published events; administrators see
+    // drafts too. All writes go through callables.
+    match /events/{eventId} {
+      allow read: if approvedUser() && (resource.data.status == 'published' || isAdmin());
+      allow write: if false;
+      match /attendees/{attendeeUid} {
+        allow read: if (isOwner(attendeeUid) && approvedUser()) || isAdmin();
+        allow write: if false;
+      }
     }
 
     match /moderation_flags/{flagId} { allow read: if isAdmin(); allow write: if false; }

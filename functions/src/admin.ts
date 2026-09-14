@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { getMessaging, MulticastMessage } from 'firebase-admin/messaging';
 import { adminAuth, adminDb } from './firebaseAdmin';
+import { writeInbox } from './notifications';
 import { APP_CHECK_ENFORCEMENT } from './appCheck';
 
 const REGION = 'africa-south1';
@@ -162,6 +163,7 @@ async function targetUserIds(targetRole: string): Promise<string[]> {
 }
 
 async function sendBroadcast(uids: string[], title: string, body: string, announcementId: string): Promise<{ sent: number; failed: number }> {
+  await writeInbox(uids, { title, body, data: { type: 'admin_broadcast', announcementId } });
   const tokens: string[] = [];
   for (let i = 0; i < uids.length; i += 100) {
     const group = uids.slice(i, i + 100);

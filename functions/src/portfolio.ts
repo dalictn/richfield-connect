@@ -123,6 +123,22 @@ export const completeOnboarding = onCall({ ...APP_CHECK_ENFORCEMENT, region: REG
   }
 });
 
+/** Records that the member finished or skipped the guided tour, so it shows once. */
+export const completeTutorial = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
+  try {
+    const uid = requireSignedIn(request);
+    await db.collection('users').doc(uid).set(
+      { tutorialCompleted: true, tutorialCompletedAt: FieldValue.serverTimestamp() },
+      { merge: true },
+    );
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('completeTutorial failed', error);
+    throw new HttpsError('internal', 'Unable to record tour completion.');
+  }
+});
+
 export const getVisibleProfile = onCall({ ...APP_CHECK_ENFORCEMENT, region: REGION }, async (request) => {
   try {
     const viewerUid = requireSignedIn(request);

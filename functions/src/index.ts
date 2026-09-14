@@ -11,10 +11,12 @@ import {
 import { APP_CHECK_ENFORCEMENT } from './appCheck';
 
 export { beforeUserCreated, verifyAlumniCredentials, finalizeAlumniRegistration };
-export { upsertPortfolioProfile, endorseSkill, evaluateProfileCompleteness, completeOnboarding, getVisibleProfile, writeRecommendation, removeRecommendation } from './portfolio';
+export { upsertPortfolioProfile, endorseSkill, evaluateProfileCompleteness, completeOnboarding, getVisibleProfile, writeRecommendation, removeRecommendation, completeTutorial } from './portfolio';
 export { extractCvProfile } from './cvExtraction';
 export { profileAssistant } from './profileAssistant';
 export { searchDirectory } from './directory';
+export { lookupMembers, getCareerPathways } from './members';
+export { upsertEvent, setEventStatus, toggleEventRsvp, notifyEventPublished } from './events';
 
 const REGISTRATION_INTENTS = 'registration_intents';
 const INTENT_TTL_MS = 15 * 60 * 1000;

@@ -259,6 +259,90 @@ async function main() {
     await db.collection('skill_demand').doc(skill).set({ skill, count, lastSearchedAt: now, lastSearchedBy: businessUid });
   }
 
+  // Alumni who share their work history, so the career pathway explorer has
+  // real journeys to show for BSc Information Technology.
+  const SHARED_EXPERIENCE = { ...DEFAULT_VISIBILITY, experience: { ...OPEN } };
+  await db.collection('users').doc(alumniUid).set({ visibility: SHARED_EXPERIENCE }, { merge: true });
+
+  const siphoUid = await upsertUser({
+    email: 'sipho.alumni@gmail.com',
+    displayName: 'Sipho Dube',
+    role: 'alumni',
+    profile: {
+      headline: 'Solutions Architect at Amazon Web Services',
+      summary: 'Richfield BSc IT graduate who moved from DevOps into cloud architecture.',
+      campusLocation: 'Durban',
+      programmeOfStudy: 'BSc Information Technology',
+      fieldOfWork: 'Cloud engineering',
+      graduationYear: 2019,
+      yearOfEnrolment: 2016,
+      skills: ['aws', 'terraform', 'kubernetes', 'python'],
+      visibility: SHARED_EXPERIENCE,
+      workExperience: [
+        { company: 'Amazon Web Services', role: 'Solutions Architect', startDate: '2022-04', description: 'Designs cloud platforms for African enterprise customers.' },
+        { company: 'Takealot', role: 'DevOps Engineer', startDate: '2019-02', endDate: '2022-03', description: 'CI/CD and infrastructure for the e-commerce platform.' },
+      ],
+    },
+  });
+
+  const zaneleUid = await upsertUser({
+    email: 'zanele.alumni@gmail.com',
+    displayName: 'Zanele Khumalo',
+    role: 'alumni',
+    profile: {
+      headline: 'Product Manager at Yoco',
+      summary: 'Started in data analytics after Richfield and moved into product.',
+      campusLocation: 'Cape Town',
+      programmeOfStudy: 'BSc Information Technology',
+      fieldOfWork: 'Product and data',
+      graduationYear: 2020,
+      yearOfEnrolment: 2017,
+      skills: ['sql', 'product management', 'analytics'],
+      visibility: SHARED_EXPERIENCE,
+      workExperience: [
+        { company: 'Yoco', role: 'Product Manager', startDate: '2023-02', description: 'Owns the merchant payments experience.' },
+        { company: 'Discovery', role: 'Data Analyst', startDate: '2020-03', endDate: '2023-01', description: 'Member engagement analytics.' },
+      ],
+    },
+  });
+
+  // Institutional events: one published and targeted, one draft for the admin demo.
+  const inDays = (days, hour) => { const d = new Date(); d.setDate(d.getDate() + days); d.setHours(hour, 0, 0, 0); return d.toISOString(); };
+  await db.collection('events').doc('seed-event-careers').set({
+    title: 'Tech Careers Fair 2026',
+    description: 'Meet employers hiring Richfield graduates across software, cloud and data. Bring your CV and your GitHub.',
+    type: 'career-fair',
+    location: 'Johannesburg campus, Main Hall',
+    startsAt: inDays(3, 10),
+    endsAt: inDays(3, 15),
+    capacity: 250,
+    programmeTags: ['bsc information technology'],
+    interestTags: ['mobile engineering', 'fintech'],
+    status: 'published',
+    attendeeCount: 0,
+    notifiedCount: 0,
+    createdBy: adminUid,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await db.collection('events').doc('seed-event-cv-clinic').set({
+    title: 'CV Clinic with TechCorp',
+    description: 'One-on-one CV reviews with TechCorp recruiters.',
+    type: 'workshop',
+    location: 'Online',
+    startsAt: inDays(10, 14),
+    endsAt: null,
+    capacity: 40,
+    programmeTags: [],
+    interestTags: [],
+    status: 'draft',
+    attendeeCount: 0,
+    notifiedCount: 0,
+    createdBy: adminUid,
+    createdAt: now,
+    updatedAt: now,
+  });
+
   // A recommendation from the alumna to the student, so the section renders.
   await db.collection('users').doc(studentUids[0]).collection('recommendations').doc(alumniUid).set({
     authorUid: alumniUid,
@@ -287,6 +371,7 @@ async function main() {
   console.log('2 opportunities (1 pending approval, 1 live), 5 skill-demand rows,');
   console.log('a full portfolio for Thabo (projects, certifications, badges, awards,');
   console.log('leadership, societies, venture) and 1 recommendation from Lerato.');
+  console.log('Career pathways: Lerato, Sipho and Zanele (BSc IT). Events: 1 published, 1 draft.');
 }
 
 main().then(() => process.exit(0)).catch((error) => {

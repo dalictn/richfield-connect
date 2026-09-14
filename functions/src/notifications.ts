@@ -35,13 +35,43 @@ async function tokensForUsers(uids: string[]): Promise<string[]> {
   }
   return Array.from(new Set(tokens));
 }
-async function sendToUsers(uids: string[], notification: { title: string; body: string; data: Record<string, string> }): Promise<void> {
+export interface PlatformNotification {
+  title: string;
+  body: string;
+  data: Record<string, string>;
+}
+
+/**
+ * Writes an in-app notification into each recipient's inbox. Clients listen with
+ * onSnapshot, so alerts appear in real time on every platform, including web
+ * where device push is unavailable, and without polling.
+ */
+export async function writeInbox(uids: string[], notification: PlatformNotification): Promise<void> {
+  const unique = Array.from(new Set(uids.filter(Boolean)));
+  for (let i = 0; i < unique.length; i += 450) {
+    const batch = db.batch();
+    for (const uid of unique.slice(i, i + 450)) {
+      batch.set(db.collection('users').doc(uid).collection('notifications').doc(), {
+        title: notification.title,
+        body: notification.body,
+        data: notification.data,
+        read: false,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
+}
+
+/** In-app inbox entry plus a device push for every registered token. */
+export async function sendToUsers(uids: string[], notification: PlatformNotification): Promise<void> {
+  await writeInbox(uids, notification);
   const tokens = await tokensForUsers(uids);
   for (let i = 0; i < tokens.length; i += 500) {
     const chunk = tokens.slice(i, i + 500);
     if (!chunk.length) continue;
     const message: MulticastMessage = { tokens: chunk, notification: { title: notification.title, body: notification.body }, data: notification.data, android: { priority: 'high', notification: { channelId: 'richfield-connect' } }, apns: { payload: { aps: { sound: 'default' } } } };
-    const result = await getMessaging().sendEachForMulticast(message);
+    await getMessaging().sendEachForMulticast(message);
   }
 }
 
