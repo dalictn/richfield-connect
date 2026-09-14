@@ -1,37 +1,30 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Avatar, Button, Card, Chip, HelperText, Searchbar, Text, useTheme } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { searchDirectory } from '../../directory/directoryService';
 import type { ConnectionsStackParamList } from '../../navigation/ConnectionsStack';
 import { createConnectionRequest, respondToConnectionRequest } from '../../social/socialService';
 import type { DirectoryCard } from '../../types/directory';
+import { initials, ROLE_LABELS } from '../../members/memberService';
 
-const ROLE_FILTERS = [
-  { value: undefined, label: 'Everyone' },
-  { value: 'student' as const, label: 'Students' },
-  { value: 'alumni' as const, label: 'Alumni' },
-  { value: 'business' as const, label: 'Employers' },
-];
-
-const ROLE_LABEL: Record<string, string> = {
-  student: 'Student',
-  alumni: 'Alumnus',
-  business: 'Employer',
-  administrator: 'Richfield staff',
-};
-
-/**
- * Member directory.
- *
- * This replaces the raw-UID entry that connecting and messaging previously
- * required. Results are redacted server-side, so a card only shows the skills a
- * member has actually chosen to expose to this viewer.
- */
 type Navigation = NativeStackNavigationProp<ConnectionsStackParamList, 'Directory'>;
 
+const ROLE_FILTERS: Array<{ value: 'student' | 'alumni' | 'business' | undefined; label: string; icon: string }> = [
+  { value: undefined, label: 'Everyone', icon: 'account-multiple' },
+  { value: 'student', label: 'Students', icon: 'school' },
+  { value: 'alumni', label: 'Alumni', icon: 'account-star' },
+  { value: 'business', label: 'Employers', icon: 'domain' },
+];
+
+/**
+ * Member directory. Results are redacted server-side, so a card only shows the
+ * skills a member has chosen to expose to this viewer.
+ */
 export function DirectoryScreen() {
   const navigation = useNavigation<Navigation>();
+  const theme = useTheme();
   const [term, setTerm] = useState('');
   const [skill, setSkill] = useState('');
   const [role, setRole] = useState<'student' | 'alumni' | 'business' | undefined>(undefined);
@@ -54,8 +47,7 @@ export function DirectoryScreen() {
     }
   }, [term, role, skill]);
 
-  // Run once on mount so the screen opens with people already listed rather
-  // than an empty box. Subsequent searches are explicit.
+  // Re-run when the role filter changes so the screen never shows stale results.
   useEffect(() => { void run(); }, [role]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function patch(uid: string, changes: Partial<DirectoryCard>) {
@@ -87,103 +79,67 @@ export function DirectoryScreen() {
     const busy = busyUid === card.uid;
     switch (card.connectionState) {
       case 'connected':
-        return <Text style={styles.stateConnected}>✓ Connected</Text>;
+        return <Chip icon="check" compact style={{ backgroundColor: theme.colors.secondaryContainer }}>Connected</Chip>;
       case 'outgoing_pending':
-        return <Text style={styles.statePending}>Request sent</Text>;
+        return <Chip icon="clock-outline" compact>Request sent</Chip>;
       case 'incoming_pending':
-        return <Pressable disabled={busy} onPress={() => void accept(card)} style={[styles.primary, busy && styles.disabled]}><Text style={styles.primaryText}>{busy ? '…' : 'Accept'}</Text></Pressable>;
+        return <Button mode="contained" compact loading={busy} disabled={busy} onPress={() => void accept(card)}>Accept</Button>;
       default:
-        return <Pressable disabled={busy} onPress={() => void connect(card)} style={[styles.primary, busy && styles.disabled]}><Text style={styles.primaryText}>{busy ? '…' : 'Connect'}</Text></Pressable>;
+        return <Button mode="contained-tonal" icon="account-plus" compact loading={busy} disabled={busy} onPress={() => void connect(card)}>Connect</Button>;
     }
   }
 
   return (
-    <View style={styles.root}>
-      <View style={styles.controls}>
-        <Text style={styles.title}>Find people</Text>
-        <Text style={styles.sub}>Search students, alumni and employers across the Richfield network.</Text>
-        <TextInput value={term} onChangeText={setTerm} onSubmitEditing={() => void run()} returnKeyType="search" placeholder="Name, headline, company or campus" style={styles.input} />
-        <TextInput value={skill} onChangeText={setSkill} onSubmitEditing={() => void run()} returnKeyType="search" placeholder="Filter by a specific skill (e.g. react native)" style={styles.input} />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
-          {ROLE_FILTERS.map((filter) => {
-            const active = role === filter.value;
-            return (
-              <Pressable key={filter.label} onPress={() => setRole(filter.value)} style={[styles.chip, active && styles.chipActive]}>
-                <Text style={active ? styles.chipActiveText : undefined}>{filter.label}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-        <Pressable onPress={() => void run()} style={styles.search}><Text style={styles.primaryText}>Search</Text></Pressable>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-      </View>
+    <ScrollView style={{ backgroundColor: theme.colors.background }} contentContainerStyle={styles.content}>
+      <Searchbar placeholder="Name, headline, company or campus" value={term} onChangeText={setTerm} onSubmitEditing={() => void run()} onIconPress={() => void run()} style={styles.search} />
+      <Searchbar icon="lightning-bolt-outline" placeholder="Filter by skill, e.g. react native" value={skill} onChangeText={setSkill} onSubmitEditing={() => void run()} onIconPress={() => void run()} style={styles.search} />
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
+        {ROLE_FILTERS.map((filter) => (
+          <Chip key={filter.label} icon={filter.icon} selected={role === filter.value} onPress={() => setRole(filter.value)}>{filter.label}</Chip>
+        ))}
+      </ScrollView>
+      {error ? <HelperText type="error">{error}</HelperText> : null}
+      {truncated ? <HelperText type="info">Showing the first matches. Narrow your search with a skill or role.</HelperText> : null}
 
-      {loading ? <ActivityIndicator style={{ marginTop: 30 }} size="large" /> : (
-        <FlatList
-          data={results}
-          keyExtractor={(item) => item.uid}
-          contentContainerStyle={styles.list}
-          ListHeaderComponent={truncated ? <Text style={styles.hint}>Showing the first matches. Narrow your search with a skill or role.</Text> : null}
-          ListEmptyComponent={<Text style={styles.empty}>Nobody matches that search yet.</Text>}
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              <View style={styles.cardTop}>
-                <Pressable
-                  style={{ flex: 1 }}
-                  onPress={() => navigation.navigate('Profile', { targetUid: item.uid, title: item.displayName })}
-                >
-                  <Text style={styles.name}>{item.displayName || 'Richfield member'}</Text>
-                  <Text style={styles.meta}>
-                    {ROLE_LABEL[item.role] ?? item.role}
-                    {item.companyName ? ` · ${item.companyName}` : ''}
-                    {item.campusLocation ? ` · ${item.campusLocation}` : ''}
-                  </Text>
-                  {item.headline ? <Text style={styles.headline}>{item.headline}</Text> : null}
-                  <Text style={styles.viewHint}>View profile ›</Text>
-                </Pressable>
-                {action(item)}
-              </View>
+      {loading ? <ActivityIndicator style={styles.loading} /> : results.length === 0 ? (
+        <Text style={[styles.empty, { color: theme.colors.onSurfaceVariant }]}>Nobody matches that search yet.</Text>
+      ) : results.map((item) => {
+        const name = item.displayName || 'Richfield member';
+        return (
+          <Card key={item.uid} mode="outlined" style={styles.card} onPress={() => navigation.navigate('Profile', { targetUid: item.uid, title: name })}>
+            <Card.Title
+              title={name}
+              subtitle={[ROLE_LABELS[item.role] ?? item.role, item.companyName, item.campusLocation].filter(Boolean).join(' · ')}
+              left={(props) => <Avatar.Text {...props} label={initials(name)} />}
+              right={() => <View style={styles.action}>{action(item)}</View>}
+            />
+            <Card.Content>
+              {item.headline ? <Text variant="bodyMedium" style={styles.headline}>{item.headline}</Text> : null}
               {item.skills.length ? (
                 <View style={styles.skills}>
-                  {item.skills.map((s) => <View key={s} style={styles.skill}><Text style={styles.skillText}>{s}</Text></View>)}
+                  {item.skills.map((s) => <Chip key={s} compact>{s}</Chip>)}
                 </View>
-              ) : item.skillsHidden ? <Text style={styles.private}>Skills visible to connections only.</Text> : null}
-            </View>
-          )}
-        />
-      )}
-    </View>
+              ) : item.skillsHidden ? (
+                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, fontStyle: 'italic' }}>
+                  Skills visible to connections only.
+                </Text>
+              ) : null}
+            </Card.Content>
+          </Card>
+        );
+      })}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  controls: { padding: 16, paddingBottom: 8, borderBottomWidth: 1, borderColor: '#e4e7ec' },
-  title: { fontSize: 26, fontWeight: '800' },
-  sub: { color: '#667085', marginBottom: 12 },
-  input: { borderWidth: 1, borderColor: '#d0d5dd', borderRadius: 8, padding: 10, marginBottom: 8 },
-  filters: { gap: 8, paddingBottom: 10 },
-  chip: { paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#d0d5dd' },
-  chipActive: { backgroundColor: '#111827', borderColor: '#111827' },
-  chipActiveText: { color: '#fff' },
-  search: { backgroundColor: '#111827', padding: 12, borderRadius: 8, alignItems: 'center' },
-  error: { color: '#b42318', marginTop: 10 },
-  list: { padding: 16, paddingBottom: 40 },
-  hint: { color: '#667085', marginBottom: 12 },
-  card: { padding: 16, borderWidth: 1, borderColor: '#e4e7ec', borderRadius: 14, marginBottom: 10 },
-  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  name: { fontSize: 16, fontWeight: '800' },
-  meta: { color: '#667085', marginTop: 3 },
-  headline: { marginTop: 6, lineHeight: 20 },
-  viewHint: { marginTop: 8, color: '#175cd3', fontWeight: '700', fontSize: 12 },
-  skills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
-  skill: { backgroundColor: '#f2f4f7', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14 },
-  skillText: { fontSize: 12 },
-  private: { color: '#98a2b3', marginTop: 12, fontStyle: 'italic' },
-  primary: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 8, backgroundColor: '#111827' },
-  primaryText: { color: '#fff', fontWeight: '700' },
-  disabled: { opacity: 0.5 },
-  stateConnected: { color: '#166534', fontWeight: '700', paddingVertical: 9 },
-  statePending: { color: '#667085', paddingVertical: 9 },
-  empty: { textAlign: 'center', padding: 30, color: '#667085' },
+  content: { padding: 16, paddingBottom: 48, width: '100%', maxWidth: 760, alignSelf: 'center' },
+  search: { marginBottom: 10 },
+  filters: { gap: 6, paddingBottom: 12 },
+  loading: { marginTop: 32 },
+  empty: { textAlign: 'center', paddingVertical: 24 },
+  card: { marginBottom: 12 },
+  action: { marginRight: 12 },
+  headline: { marginBottom: 8 },
+  skills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
 });

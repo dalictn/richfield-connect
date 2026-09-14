@@ -1,64 +1,104 @@
 import React, { useEffect, useState } from 'react';
-import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Avatar, Card, HelperText, List, Text, useTheme } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../auth/AuthProvider';
-import { sendDirectMessage, subscribeConversations } from '../../social/socialService';
-import type { Conversation } from '../../types/social';
+import { subscribeConnections, subscribeConversations } from '../../social/socialService';
+import type { ConnectionMember, Conversation } from '../../types/social';
 import type { MessagesStackParamList } from '../../navigation/MessagesStack';
+import { initials, ROLE_LABELS, useMembers } from '../../members/memberService';
 
 type Navigation = NativeStackNavigationProp<MessagesStackParamList, 'MessagesList'>;
+
+/** Conversation ids are the two member uids sorted and joined — must match the server. */
+const conversationIdFor = (a: string, b: string) => [a, b].sort().join('_');
 
 export function MessagesScreen() {
   const { firebaseUser } = useAuth();
   const navigation = useNavigation<Navigation>();
-  const [items, setItems] = useState<Conversation[]>([]);
-  const [targetUid, setTargetUid] = useState('');
-  const [body, setBody] = useState('');
-  const [message, setMessage] = useState('');
+  const theme = useTheme();
+  const uid = firebaseUser?.uid;
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [connections, setConnections] = useState<ConnectionMember[]>([]);
+  const [error, setError] = useState('');
 
-  useEffect(() => firebaseUser ? subscribeConversations(firebaseUser.uid, setItems, e => setMessage(e.message)) : undefined, [firebaseUser]);
+  useEffect(() => (uid ? subscribeConversations(uid, setConversations, (e) => setError(e.message)) : undefined), [uid]);
+  useEffect(() => (uid ? subscribeConnections(uid, setConnections, (e) => setError(e.message)) : undefined), [uid]);
 
-  function otherMember(conversation: Conversation): string {
-    return conversation.memberUids.find(id => id !== firebaseUser?.uid) ?? '';
-  }
+  const other = (conversation: Conversation) => conversation.memberUids.find((id) => id !== uid) ?? '';
+  const people = useMembers([...conversations.map(other), ...connections.map((c) => c.uid)]);
 
-  function openConversation(conversation: Conversation) {
-    const other = otherMember(conversation);
-    if (!other) return;
-    navigation.navigate('Conversation', { conversationId: conversation.id, targetUid: other, title: other });
-  }
+  const open = (targetUid: string) => {
+    if (!uid || !targetUid) return;
+    navigation.navigate('Conversation', {
+      conversationId: conversationIdFor(uid, targetUid),
+      targetUid,
+      title: people[targetUid]?.displayName ?? 'Conversation',
+    });
+  };
 
-  async function send() {
-    if (!targetUid.trim() || !body.trim()) return;
-    try {
-      const result = await sendDirectMessage(targetUid.trim(), body.trim());
-      setBody('');
-      setMessage('Message sent.');
-      navigation.navigate('Conversation', { conversationId: result.conversationId, targetUid: targetUid.trim(), title: targetUid.trim() });
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Unable to send message.');
-    }
-  }
+  const withThread = new Set(conversations.map(other));
+  const startable = connections.filter((c) => !withThread.has(c.uid));
 
-  return <View style={{ flex: 1, padding: 16 }}>
-    <Text style={{ fontSize: 26, fontWeight: '800', marginBottom: 4 }}>Messages</Text>
-    <Text style={{ color: '#6b7280', marginBottom: 12 }}>Start a conversation with a connected user, or open an existing thread below.</Text>
-    <TextInput value={targetUid} onChangeText={setTargetUid} placeholder="Connected user's UID" style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, marginBottom: 8 }} />
-    <TextInput value={body} onChangeText={setBody} placeholder="Message" multiline style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, minHeight: 80, marginBottom: 8 }} />
-    <Pressable onPress={send} style={{ backgroundColor: '#111827', padding: 12, borderRadius: 8, alignItems: 'center' }}><Text style={{ color: '#fff', fontWeight: '700' }}>Send direct message</Text></Pressable>
-    {message ? <Text style={{ marginVertical: 10 }}>{message}</Text> : null}
-    <Text style={{ fontSize: 18, fontWeight: '800', marginTop: 12, marginBottom: 8 }}>Conversations</Text>
-    <FlatList
-      data={items}
-      keyExtractor={item => item.id}
-      ListEmptyComponent={<Text style={{ color: '#666' }}>No conversations yet.</Text>}
-      renderItem={({ item }) => (
-        <Pressable onPress={() => openConversation(item)} style={{ padding: 12, borderBottomWidth: 1, borderColor: '#eee' }}>
-          <Text style={{ fontWeight: '700' }}>{otherMember(item) || 'Conversation'}</Text>
-          <Text style={{ color: '#666' }} numberOfLines={1}>{item.lastMessage || 'No messages yet.'}</Text>
-        </Pressable>
+  return (
+    <ScrollView contentContainerStyle={styles.content}>
+      {error ? <HelperText type="error">{error}</HelperText> : null}
+
+      <Text variant="titleMedium" style={styles.heading}>Conversations</Text>
+      {conversations.length === 0 ? (
+        <Text style={[styles.empty, { color: theme.colors.onSurfaceVariant }]}>No conversations yet. Start one with a connection below.</Text>
+      ) : (
+        <Card mode="outlined" style={styles.card}>
+          {conversations.map((conversation) => {
+            const target = other(conversation);
+            const name = people[target]?.displayName ?? 'Loading…';
+            return (
+              <List.Item
+                key={conversation.id}
+                title={name}
+                description={conversation.lastMessage || 'No messages yet'}
+                descriptionNumberOfLines={1}
+                left={() => <Avatar.Text size={40} label={initials(name)} style={styles.avatar} />}
+                right={(props) => <List.Icon {...props} icon="chevron-right" />}
+                onPress={() => open(target)}
+              />
+            );
+          })}
+        </Card>
       )}
-    />
-  </View>;
+
+      <Text variant="titleMedium" style={styles.heading}>Start a conversation</Text>
+      {startable.length === 0 ? (
+        <Text style={[styles.empty, { color: theme.colors.onSurfaceVariant }]}>
+          {connections.length ? 'You already have a thread with every connection.' : 'Messaging is available once you have connections.'}
+        </Text>
+      ) : (
+        <Card mode="outlined" style={styles.card}>
+          {startable.map((connection) => {
+            const person = people[connection.uid];
+            const name = person?.displayName ?? 'Loading…';
+            return (
+              <List.Item
+                key={connection.uid}
+                title={name}
+                description={person ? ROLE_LABELS[person.role] ?? person.role : ''}
+                left={() => <Avatar.Text size={40} label={initials(name)} style={styles.avatar} />}
+                right={(props) => <List.Icon {...props} icon="message-plus-outline" />}
+                onPress={() => open(connection.uid)}
+              />
+            );
+          })}
+        </Card>
+      )}
+    </ScrollView>
+  );
 }
+
+const styles = StyleSheet.create({
+  content: { padding: 16, paddingBottom: 48, width: '100%', maxWidth: 760, alignSelf: 'center' },
+  heading: { marginTop: 8, marginBottom: 8 },
+  card: { marginBottom: 12 },
+  empty: { marginBottom: 12 },
+  avatar: { marginLeft: 8, alignSelf: 'center' },
+});

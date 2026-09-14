@@ -1,7 +1,76 @@
-import React,{useState} from 'react';
-import {ActivityIndicator,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
-import {callFunction} from '../../firebaseApi';
-import { notify } from '../../ui/alert';
-const targets=['all','student','alumni','business'] as const;
-export function BroadcastScreen(){const[title,setTitle]=useState('');const[body,setBody]=useState('');const[targetRole,setTargetRole]=useState<typeof targets[number]>('all');const[busy,setBusy]=useState(false);const send=async()=>{if(!title.trim()||!body.trim()){notify('Missing information','Enter a title and message.');return;}setBusy(true);try{const r=await callFunction<{title:string;body:string;targetRole:string},{recipientCount:number;sent:number;failed:number}>('broadcastAnnouncement',{title:title.trim(),body:body.trim(),targetRole});notify('Broadcast complete',`${r.sent} notifications sent to ${r.recipientCount} active recipients. ${r.failed} failed.`);setTitle('');setBody('');}catch(e){notify('Broadcast failed',e instanceof Error?e.message:'Unable to send announcement.');}finally{setBusy(false);}};return <ScrollView contentContainerStyle={styles.container}><Text style={styles.title}>Broadcast Centre</Text><Text style={styles.sub}>System-wide push notifications with role targeting.</Text><Text style={styles.label}>Audience</Text><View style={styles.targets}>{targets.map(t=><Pressable key={t} onPress={()=>setTargetRole(t)} style={[styles.target,targetRole===t&&styles.selected]}><Text style={targetRole===t?styles.selectedText:undefined}>{t==='all'?'All users':t[0].toUpperCase()+t.slice(1)+'s'}</Text></Pressable>)}</View><Text style={styles.label}>Title</Text><TextInput value={title} onChangeText={setTitle} maxLength={120} style={styles.input} placeholder="Announcement title"/><Text style={styles.label}>Message</Text><TextInput value={body} onChangeText={setBody} maxLength={2000} multiline textAlignVertical="top" style={[styles.input,styles.area]} placeholder="Write the announcement..."/><Pressable disabled={busy} onPress={()=>void send()} style={[styles.send,busy&&styles.disabled]}>{busy?<ActivityIndicator color="#fff"/>:<Text style={styles.sendText}>Send announcement</Text>}</Pressable></ScrollView>}
-const styles=StyleSheet.create({container:{padding:18},title:{fontSize:30,fontWeight:'800'},sub:{color:'#667085',marginBottom:20},label:{fontWeight:'800',marginTop:12,marginBottom:7},targets:{flexDirection:'row',flexWrap:'wrap',gap:8},target:{paddingHorizontal:13,paddingVertical:9,borderRadius:20,borderWidth:1,borderColor:'#d0d5dd'},selected:{backgroundColor:'#111827'},selectedText:{color:'#fff'},input:{borderWidth:1,borderColor:'#d0d5dd',borderRadius:10,padding:12,fontSize:16},area:{minHeight:150},send:{marginTop:20,padding:14,borderRadius:10,backgroundColor:'#111827',alignItems:'center'},sendText:{color:'#fff',fontWeight:'800'},disabled:{opacity:.5}});
+import React, { useState } from 'react';
+import { ScrollView, StyleSheet } from 'react-native';
+import { Button, Card, HelperText, SegmentedButtons, Snackbar, Text, TextInput, useTheme } from 'react-native-paper';
+import { callFunction } from '../../firebaseApi';
+
+type Audience = 'all' | 'student' | 'alumni' | 'business';
+
+export function BroadcastScreen() {
+  const theme = useTheme();
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [audience, setAudience] = useState<Audience>('all');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+
+  async function send() {
+    if (!title.trim() || !body.trim()) {
+      setError('Enter a title and a message.');
+      return;
+    }
+    setBusy(true); setError('');
+    try {
+      const result = await callFunction<{ title: string; body: string; targetRole: Audience }, { recipientCount: number; sent: number; failed: number }>(
+        'broadcastAnnouncement',
+        { title: title.trim(), body: body.trim(), targetRole: audience },
+      );
+      setNotice(`Delivered to ${result.recipientCount} inboxes · ${result.sent} device pushes.`);
+      setTitle('');
+      setBody('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to send the announcement.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <ScrollView style={{ backgroundColor: theme.colors.background }} contentContainerStyle={styles.content}>
+        <Text variant="headlineSmall" style={styles.title}>Broadcast centre</Text>
+        <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 16 }}>
+          Announcements appear instantly in members' in-app inboxes and as push notifications on their devices.
+        </Text>
+        <Card mode="outlined">
+          <Card.Content style={styles.form}>
+            <Text variant="labelLarge">Audience</Text>
+            <SegmentedButtons
+              value={audience}
+              onValueChange={(value) => setAudience(value as Audience)}
+              buttons={[
+                { value: 'all', label: 'Everyone', icon: 'account-multiple' },
+                { value: 'student', label: 'Students', icon: 'school' },
+                { value: 'alumni', label: 'Alumni', icon: 'account-star' },
+                { value: 'business', label: 'Employers', icon: 'domain' },
+              ]}
+            />
+            <TextInput mode="outlined" label="Title" value={title} onChangeText={setTitle} maxLength={120} />
+            <TextInput mode="outlined" label="Message" value={body} onChangeText={setBody} maxLength={2000} multiline numberOfLines={5} />
+            {error ? <HelperText type="error">{error}</HelperText> : null}
+          </Card.Content>
+          <Card.Actions>
+            <Button mode="contained" icon="bullhorn" loading={busy} disabled={busy} onPress={() => void send()}>Send announcement</Button>
+          </Card.Actions>
+        </Card>
+      </ScrollView>
+      <Snackbar visible={Boolean(notice)} onDismiss={() => setNotice('')} duration={4000}>{notice}</Snackbar>
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  content: { padding: 16, paddingBottom: 48, width: '100%', maxWidth: 760, alignSelf: 'center' },
+  title: { fontWeight: '700' },
+  form: { gap: 12 },
+});

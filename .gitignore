@@ -13,3 +13,7 @@ build/
 npm-debug.log*
 .DS_Store
 Thums.db
+
+# Separate Google AI Studio prototype, kept locally for reference only.
+# Contains a hardcoded API key and a teammate's personal details; never commit it.
+richfield-nexus/

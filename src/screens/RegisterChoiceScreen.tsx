@@ -1,37 +1,44 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
+import { Avatar, Card, List, Text, useTheme } from 'react-native-paper';
+
+const CHOICES = [
+  { route: 'StudentRegister', title: 'Student', description: 'Register with your Richfield or AAA institutional email', icon: 'school' },
+  { route: 'AlumniVerify', title: 'Alumni', description: 'Verify your former student record, then confirm by email link', icon: 'account-star' },
+  { route: 'BusinessRegister', title: 'Employer', description: 'Register your company; an administrator approves access', icon: 'domain' },
+];
 
 export function RegisterChoiceScreen({ navigation }: any) {
+  const theme = useTheme();
   return (
-    <View style={styles.page}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Choose account type</Text>
-        <Pressable style={styles.card} onPress={() => navigation.navigate('StudentRegister')}>
-          <Text style={styles.cardTitle}>Student</Text>
-          <Text style={styles.cardBody}>Institutional Richfield / AAA email required.</Text>
-        </Pressable>
-        <Pressable style={styles.card} onPress={() => navigation.navigate('AlumniVerify')}>
-          <Text style={styles.cardTitle}>Alumni</Text>
-          <Text style={styles.cardBody}>Verify your former student identity, then authenticate by email link.</Text>
-        </Pressable>
-        <Pressable style={styles.card} onPress={() => navigation.navigate('BusinessRegister')}>
-          <Text style={styles.cardTitle}>Business User</Text>
-          <Text style={styles.cardBody}>Register a company account for administrator approval.</Text>
-        </Pressable>
-        <Text style={styles.admin}>Administrator accounts are provisioned separately and cannot self-register.</Text>
-      </View>
-    </View>
+    <ScrollView style={{ backgroundColor: theme.colors.background }} contentContainerStyle={styles.page}>
+      <Text variant="headlineMedium" style={styles.title}>Join Richfield Connect</Text>
+      <Text variant="bodyLarge" style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
+        Every account is verified. Choose how you're joining.
+      </Text>
+      {CHOICES.map((choice) => (
+        <Card key={choice.route} mode="outlined" style={styles.card} onPress={() => navigation.navigate(choice.route)}>
+          <Card.Title
+            title={choice.title}
+            subtitle={choice.description}
+            subtitleNumberOfLines={2}
+            titleVariant="titleMedium"
+            left={(props) => <Avatar.Icon {...props} icon={choice.icon} />}
+            right={(props) => <List.Icon {...props} icon="chevron-right" />}
+          />
+        </Card>
+      ))}
+      <Text variant="bodySmall" style={[styles.footnote, { color: theme.colors.onSurfaceVariant }]}>
+        Administrator accounts are provisioned by Richfield staff and cannot self-register.
+      </Text>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  // Capped and centred so the cards do not span the full width of a desktop
-  // browser window under react-native-web.
-  page: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: '#f6f8fa' },
-  container: { width: '100%', maxWidth: 460, gap: 14 },
-  title: { fontSize: 30, fontWeight: '900' },
-  card: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 14, padding: 18, gap: 6, backgroundColor: '#fff' },
-  cardTitle: { fontSize: 18, fontWeight: '800' },
-  cardBody: { color: '#667085', lineHeight: 20 },
-  admin: { color: '#64748b', fontSize: 13, textAlign: 'center', marginTop: 8, lineHeight: 18 },
+  page: { flexGrow: 1, justifyContent: 'center', padding: 24, width: '100%', maxWidth: 480, alignSelf: 'center' },
+  title: { fontWeight: '700' },
+  subtitle: { marginTop: 4, marginBottom: 16 },
+  card: { marginBottom: 12 },
+  footnote: { marginTop: 8, textAlign: 'center' },
 });

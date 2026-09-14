@@ -1,32 +1,28 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Button, Card, Chip, HelperText, Snackbar, Text, useTheme } from 'react-native-paper';
 import { reviewOpportunity, subscribePendingOpportunities } from '../../opportunities/opportunityService';
 import type { Opportunity } from '../../types/opportunity';
 import { confirmAction } from '../../ui/alert';
 
 /**
- * Administrator opportunity oversight.
- *
- * Business users submit listings with status `pending`; nothing reaches students
- * until an administrator approves it here. Approving flips the status, which the
- * matchOnOpportunityApproval trigger picks up to score the listing against every
- * student profile and push a match notification.
+ * Administrator opportunity oversight. Nothing reaches students until published
+ * here; publishing triggers skill and programme matching against every student.
  */
 export function OpportunityApprovalScreen() {
+  const theme = useTheme();
   const [pending, setPending] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
-  useEffect(() => {
-    return subscribePendingOpportunities(
-      (items) => { setPending(items); setLoading(false); },
-      (e) => { setError(e.message); setLoading(false); },
-    );
-  }, []);
+  useEffect(() => subscribePendingOpportunities(
+    (items) => { setPending(items); setLoading(false); },
+    (e) => { setError(e.message); setLoading(false); },
+  ), []);
 
-  const review = async (item: Opportunity, status: 'approved' | 'rejected') => {
+  async function review(item: Opportunity, status: 'approved' | 'rejected') {
     const approving = status === 'approved';
     const confirmed = await confirmAction({
       title: approving ? 'Publish this opportunity?' : 'Reject this opportunity?',
@@ -37,70 +33,61 @@ export function OpportunityApprovalScreen() {
       destructive: !approving,
     });
     if (!confirmed) return;
-
-    setBusyId(item.id); setError(''); setNotice('');
+    setBusyId(item.id); setError('');
     try {
       await reviewOpportunity(item.id, status);
-      setNotice(approving ? `"${item.title}" is live and matched students have been notified.` : `"${item.title}" was rejected.`);
+      setNotice(approving ? `"${item.title}" is live — matched students are being notified.` : `"${item.title}" was rejected.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unable to review this opportunity.');
     } finally {
       setBusyId(null);
     }
-  };
+  }
 
-  if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" />;
+  if (loading) return <ActivityIndicator style={styles.loading} />;
 
   return (
-    <FlatList
-      data={pending}
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.list}
-      ListHeaderComponent={
-        <>
-          <Text style={styles.title}>Opportunity Approvals</Text>
-          <Text style={styles.sub}>Listings stay hidden from students until you publish them.</Text>
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          {notice ? <Text style={styles.notice}>{notice}</Text> : null}
-        </>
-      }
-      ListEmptyComponent={<Text style={styles.empty}>No opportunities are awaiting review.</Text>}
-      renderItem={({ item }) => (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>{item.title}</Text>
-          <Text style={styles.meta}>{item.companyName} · {item.type} · {item.remote ? 'Remote' : item.location}</Text>
-          <Text style={styles.body}>{item.description}</Text>
-          <Text style={styles.meta}>Skills: {item.requiredSkills.join(', ') || 'None listed'}</Text>
-          {item.programmeTags?.length ? <Text style={styles.meta}>Programmes: {item.programmeTags.join(', ')}</Text> : null}
-          <View style={styles.actions}>
-            <Pressable disabled={busyId === item.id} onPress={() => void review(item, 'approved')} style={[styles.primary, busyId === item.id && styles.disabled]}>
-              <Text style={styles.primaryText}>{busyId === item.id ? 'Working…' : 'Publish'}</Text>
-            </Pressable>
-            <Pressable disabled={busyId === item.id} onPress={() => void review(item, 'rejected')} style={[styles.secondary, busyId === item.id && styles.disabled]}>
-              <Text style={styles.secondaryText}>Reject</Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
-    />
+    <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text variant="headlineSmall" style={styles.title}>Opportunity approvals</Text>
+        <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 12 }}>
+          Listings stay hidden from students until you publish them.
+        </Text>
+        {error ? <HelperText type="error">{error}</HelperText> : null}
+        {pending.length === 0 ? (
+          <Text style={[styles.empty, { color: theme.colors.onSurfaceVariant }]}>No opportunities are awaiting review.</Text>
+        ) : pending.map((item) => (
+          <Card key={item.id} mode="outlined" style={styles.card}>
+            <Card.Title title={item.title} titleNumberOfLines={2} subtitle={`${item.companyName} · ${item.remote ? 'Remote' : item.location}`} />
+            <Card.Content>
+              <View style={styles.tags}>
+                <Chip compact icon="tag-outline">{item.type}</Chip>
+                {(item.requiredSkills ?? []).map((skill) => <Chip key={skill} compact>{skill}</Chip>)}
+              </View>
+              <Text variant="bodyMedium" style={styles.body}>{item.description}</Text>
+              {item.programmeTags?.length ? (
+                <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }}>Programmes: {item.programmeTags.join(', ')}</Text>
+              ) : null}
+            </Card.Content>
+            <Card.Actions>
+              <Button mode="outlined" textColor={theme.colors.error} disabled={busyId === item.id} onPress={() => void review(item, 'rejected')}>Reject</Button>
+              <Button mode="contained" icon="check" loading={busyId === item.id} disabled={busyId === item.id} onPress={() => void review(item, 'approved')}>Publish</Button>
+            </Card.Actions>
+          </Card>
+        ))}
+      </ScrollView>
+      <Snackbar visible={Boolean(notice)} onDismiss={() => setNotice('')} duration={4000}>{notice}</Snackbar>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  list: { padding: 16, paddingBottom: 40 },
-  title: { fontSize: 28, fontWeight: '800' },
-  sub: { color: '#667085', marginBottom: 16 },
-  error: { color: '#b42318', marginBottom: 12 },
-  notice: { color: '#166534', marginBottom: 12 },
-  card: { padding: 16, borderWidth: 1, borderColor: '#e4e7ec', borderRadius: 14, marginBottom: 12 },
-  cardTitle: { fontSize: 18, fontWeight: '800' },
-  meta: { color: '#667085', marginTop: 4 },
-  body: { marginVertical: 8, lineHeight: 21 },
-  actions: { flexDirection: 'row', gap: 10, marginTop: 14 },
-  primary: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, backgroundColor: '#111827' },
-  primaryText: { color: '#fff', fontWeight: '700' },
-  secondary: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#d0d5dd' },
-  secondaryText: { fontWeight: '700' },
-  disabled: { opacity: 0.5 },
-  empty: { textAlign: 'center', padding: 30, color: '#667085' },
+  root: { flex: 1 },
+  loading: { flex: 1 },
+  content: { padding: 16, paddingBottom: 48, width: '100%', maxWidth: 760, alignSelf: 'center' },
+  title: { fontWeight: '700' },
+  empty: { textAlign: 'center', paddingVertical: 32 },
+  card: { marginBottom: 12 },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
+  body: { lineHeight: 21, marginBottom: 8 },
 });
