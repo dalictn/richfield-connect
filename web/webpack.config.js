@@ -20,6 +20,8 @@ const compileNodeModules = [
   'react-native-safe-area-context',
   'react-native-svg',
   '@react-native-async-storage',
+  // Ships untranspiled JSX; React Native Paper renders its icons through it.
+  'react-native-vector-icons',
 ].map((moduleName) => path.resolve(appDirectory, `node_modules/${moduleName}`));
 
 module.exports = {
@@ -53,6 +55,8 @@ module.exports = {
   },
   module: {
     rules: [
+      // Icon fonts for React Native Paper (MaterialCommunityIcons).
+      { test: /\.ttf$/, type: 'asset/resource' },
       {
         test: /\.[jt]sx?$/,
         include: [

@@ -1,10 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { Linking, ActivityIndicator, Text, View } from 'react-native';
+import { PaperProvider } from 'react-native-paper';
 import { AuthProvider } from './auth/AuthProvider';
+import { NotificationCenterProvider } from './notifications/NotificationCenter';
+import { theme } from './ui/theme';
+import { loadIconFonts } from './ui/iconFont';
 import { RootNavigator } from './navigation/RootNavigator';
 import { handleIncomingAlumniEmailLink } from './auth/authService';
 import { initializeRichfieldAppCheck } from './firebaseAppCheck';
 import { registerForNotifications, subscribeTokenRefresh } from './notifications/notificationService';
+
+loadIconFonts();
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -72,8 +78,12 @@ export default function App() {
   }
 
   return (
-    <AuthProvider>
-      <RootNavigator />
-    </AuthProvider>
+    <PaperProvider theme={theme}>
+      <AuthProvider>
+        <NotificationCenterProvider>
+          <RootNavigator />
+        </NotificationCenterProvider>
+      </AuthProvider>
+    </PaperProvider>
   );
 }

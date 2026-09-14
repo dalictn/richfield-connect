@@ -1,5 +1,6 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { InboxBell } from '../notifications/NotificationCenter';
 import { MessagesScreen } from '../screens/social/MessagesScreen';
 import { ConversationScreen } from '../screens/social/ConversationScreen';
 
@@ -18,7 +19,7 @@ const Stack = createNativeStackNavigator<MessagesStackParamList>();
 
 export function MessagesStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={{ headerRight: () => <InboxBell /> }}>
       <Stack.Screen name="MessagesList" component={MessagesScreen} options={{ title: 'Messages' }} />
       <Stack.Screen
         name="Conversation"

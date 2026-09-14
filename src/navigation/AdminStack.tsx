@@ -1,6 +1,8 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AdminConsoleScreen } from '../screens/admin/AdminConsoleScreen';
+import { AdminEventsScreen } from '../screens/admin/AdminEventsScreen';
+import { InboxBell } from '../notifications/NotificationCenter';
 import { AdminDashboardScreen } from '../screens/admin/AdminDashboardScreen';
 import { OpportunityApprovalScreen } from '../screens/admin/OpportunityApprovalScreen';
 import { ModerationQueueScreen } from '../screens/admin/ModerationQueueScreen';
@@ -18,6 +20,7 @@ export type AdminStackParamList = {
   AdminHome: undefined;
   AdminUsers: undefined;
   AdminApprovals: undefined;
+  AdminEvents: undefined;
   AdminModeration: undefined;
   AdminAnalytics: undefined;
   AdminBroadcast: undefined;
@@ -27,10 +30,11 @@ const Stack = createNativeStackNavigator<AdminStackParamList>();
 
 export function AdminStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={{ headerRight: () => <InboxBell /> }}>
       <Stack.Screen name="AdminHome" component={AdminConsoleScreen} options={{ title: 'Console' }} />
       <Stack.Screen name="AdminUsers" component={AdminDashboardScreen} options={{ title: 'User management' }} />
       <Stack.Screen name="AdminApprovals" component={OpportunityApprovalScreen} options={{ title: 'Opportunity approvals' }} />
+      <Stack.Screen name="AdminEvents" component={AdminEventsScreen} options={{ title: 'Events' }} />
       <Stack.Screen name="AdminModeration" component={ModerationQueueScreen} options={{ title: 'Moderation queue' }} />
       <Stack.Screen name="AdminAnalytics" component={AdminAnalyticsScreen} options={{ title: 'Platform analytics' }} />
       <Stack.Screen name="AdminBroadcast" component={BroadcastScreen} options={{ title: 'Broadcast centre' }} />

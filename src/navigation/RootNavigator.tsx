@@ -25,6 +25,11 @@ import { MessagesStack } from './MessagesStack';
 import { AdminStack } from './AdminStack';
 import { OpportunityBoardScreen } from '../screens/opportunities/OpportunityBoardScreen';
 import { firebaseProjectId } from '../firebaseApi';
+import { Icon } from 'react-native-paper';
+import { InboxBell } from '../notifications/NotificationCenter';
+import { navigationRef } from './navigationRef';
+import { TutorialHost } from '../tutorial/TutorialHost';
+import { theme } from '../ui/theme';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -49,19 +54,41 @@ const AlumniTabs = createBottomTabNavigator<RoleTabParamList>();
 const BusinessTabs = createBottomTabNavigator<RoleTabParamList>();
 const AdminTabs = createBottomTabNavigator<RoleTabParamList>();
 
+const TAB_ICONS: Record<string, string> = {
+  Dashboard: 'view-dashboard-outline',
+  Console: 'shield-account-outline',
+  Feed: 'newspaper-variant-outline',
+  Connections: 'account-group-outline',
+  Messages: 'message-text-outline',
+  Opportunities: 'briefcase-outline',
+  Portfolio: 'card-account-details-outline',
+  Assistant: 'robot-happy-outline',
+  Account: 'account-circle-outline',
+};
+
+// Shared by every role's tab navigator: icons, brand colours and the notification bell.
+const tabScreenOptions = ({ route }: { route: { name: string } }) => ({
+  headerRight: () => <InboxBell />,
+  tabBarActiveTintColor: theme.colors.primary,
+  tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
+  tabBarIcon: ({ color, size }: { color: string; size: number }) => (
+    <Icon source={TAB_ICONS[route.name] ?? 'circle-outline'} color={color} size={size} />
+  ),
+});
+
 function RoleTabs({ dashboard, showAssistant = true }: { dashboard: React.ComponentType; showAssistant?: boolean }) {
-  return <StudentTabs.Navigator><StudentTabs.Screen name="Dashboard" component={dashboard} /><StudentTabs.Screen name="Feed" component={FeedScreen} /><StudentTabs.Screen name="Connections" component={ConnectionsStack} options={{ headerShown: false }} /><StudentTabs.Screen name="Messages" component={MessagesStack} options={{ headerShown: false }} /><StudentTabs.Screen name="Opportunities" component={OpportunityBoardScreen} /><StudentTabs.Screen name="Portfolio" component={PortfolioScreen} />{showAssistant && <StudentTabs.Screen name="Assistant" component={ProfileAssistantScreen} />}<StudentTabs.Screen name="Account" component={AccountScreen} /></StudentTabs.Navigator>;
+  return <StudentTabs.Navigator screenOptions={tabScreenOptions}><StudentTabs.Screen name="Dashboard" component={dashboard} /><StudentTabs.Screen name="Feed" component={FeedScreen} /><StudentTabs.Screen name="Connections" component={ConnectionsStack} options={{ headerShown: false }} /><StudentTabs.Screen name="Messages" component={MessagesStack} options={{ headerShown: false }} /><StudentTabs.Screen name="Opportunities" component={OpportunityBoardScreen} /><StudentTabs.Screen name="Portfolio" component={PortfolioScreen} />{showAssistant && <StudentTabs.Screen name="Assistant" component={ProfileAssistantScreen} />}<StudentTabs.Screen name="Account" component={AccountScreen} /></StudentTabs.Navigator>;
 }
-function AlumniRoleTabs() { return <AlumniTabs.Navigator><AlumniTabs.Screen name="Dashboard" component={AlumniDashboard} /><AlumniTabs.Screen name="Feed" component={FeedScreen} /><AlumniTabs.Screen name="Connections" component={ConnectionsStack} options={{ headerShown: false }} /><AlumniTabs.Screen name="Messages" component={MessagesStack} options={{ headerShown: false }} /><AlumniTabs.Screen name="Opportunities" component={OpportunityBoardScreen} /><AlumniTabs.Screen name="Portfolio" component={PortfolioScreen} /><AlumniTabs.Screen name="Assistant" component={ProfileAssistantScreen} /><AlumniTabs.Screen name="Account" component={AccountScreen} /></AlumniTabs.Navigator>; }
-function BusinessRoleTabs() { return <BusinessTabs.Navigator><BusinessTabs.Screen name="Dashboard" component={BusinessDashboard} /><BusinessTabs.Screen name="Feed" component={FeedScreen} /><BusinessTabs.Screen name="Connections" component={ConnectionsStack} options={{ headerShown: false }} /><BusinessTabs.Screen name="Messages" component={MessagesStack} options={{ headerShown: false }} /><BusinessTabs.Screen name="Opportunities" component={OpportunityBoardScreen} /><BusinessTabs.Screen name="Portfolio" component={PortfolioScreen} /><BusinessTabs.Screen name="Assistant" component={ProfileAssistantScreen} /><BusinessTabs.Screen name="Account" component={AccountScreen} /></BusinessTabs.Navigator>; }
-function AdminRoleTabs() { return <AdminTabs.Navigator><AdminTabs.Screen name="Console" component={AdminStack} options={{ headerShown: false }} /><AdminTabs.Screen name="Feed" component={FeedScreen} /><AdminTabs.Screen name="Connections" component={ConnectionsStack} options={{ headerShown: false }} /><AdminTabs.Screen name="Messages" component={MessagesStack} options={{ headerShown: false }} /><AdminTabs.Screen name="Portfolio" component={PortfolioScreen} /><AdminTabs.Screen name="Assistant" component={ProfileAssistantScreen} /><AdminTabs.Screen name="Account" component={AccountScreen} /></AdminTabs.Navigator>; }
+function AlumniRoleTabs() { return <AlumniTabs.Navigator screenOptions={tabScreenOptions}><AlumniTabs.Screen name="Dashboard" component={AlumniDashboard} /><AlumniTabs.Screen name="Feed" component={FeedScreen} /><AlumniTabs.Screen name="Connections" component={ConnectionsStack} options={{ headerShown: false }} /><AlumniTabs.Screen name="Messages" component={MessagesStack} options={{ headerShown: false }} /><AlumniTabs.Screen name="Opportunities" component={OpportunityBoardScreen} /><AlumniTabs.Screen name="Portfolio" component={PortfolioScreen} /><AlumniTabs.Screen name="Assistant" component={ProfileAssistantScreen} /><AlumniTabs.Screen name="Account" component={AccountScreen} /></AlumniTabs.Navigator>; }
+function BusinessRoleTabs() { return <BusinessTabs.Navigator screenOptions={tabScreenOptions}><BusinessTabs.Screen name="Dashboard" component={BusinessDashboard} /><BusinessTabs.Screen name="Feed" component={FeedScreen} /><BusinessTabs.Screen name="Connections" component={ConnectionsStack} options={{ headerShown: false }} /><BusinessTabs.Screen name="Messages" component={MessagesStack} options={{ headerShown: false }} /><BusinessTabs.Screen name="Opportunities" component={OpportunityBoardScreen} /><BusinessTabs.Screen name="Portfolio" component={PortfolioScreen} /><BusinessTabs.Screen name="Assistant" component={ProfileAssistantScreen} /><BusinessTabs.Screen name="Account" component={AccountScreen} /></BusinessTabs.Navigator>; }
+function AdminRoleTabs() { return <AdminTabs.Navigator screenOptions={tabScreenOptions}><AdminTabs.Screen name="Console" component={AdminStack} options={{ headerShown: false }} /><AdminTabs.Screen name="Feed" component={FeedScreen} /><AdminTabs.Screen name="Connections" component={ConnectionsStack} options={{ headerShown: false }} /><AdminTabs.Screen name="Messages" component={MessagesStack} options={{ headerShown: false }} /><AdminTabs.Screen name="Portfolio" component={PortfolioScreen} /><AdminTabs.Screen name="Assistant" component={ProfileAssistantScreen} /><AdminTabs.Screen name="Account" component={AccountScreen} /></AdminTabs.Navigator>; }
 function getLinking(): LinkingOptions<RootStackParamList> { const projectId = firebaseProjectId(); return { prefixes: ['richfieldconnect://', `https://${projectId}.firebaseapp.com`] }; }
 function BootstrapError({ message }: { message: string }) { return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}><Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Account state unavailable</Text><Text>{message}</Text></View>; }
 
 export function RootNavigator() {
   const { loading, firebaseUser, profile, profileError } = useAuth();
   if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" />;
-  return <NavigationContainer linking={getLinking()}><RootStack.Navigator>
+  return <TutorialHost><NavigationContainer ref={navigationRef} linking={getLinking()}><RootStack.Navigator>
     {!firebaseUser ? <RootStack.Group><RootStack.Screen name="Login" component={LoginScreen} /><RootStack.Screen name="RegisterChoice" component={RegisterChoiceScreen} /><RootStack.Screen name="StudentRegister" component={StudentRegisterScreen} /><RootStack.Screen name="AlumniVerify" component={AlumniVerifyScreen} /><RootStack.Screen name="AlumniPending" component={AlumniEmailLinkPendingScreen} /><RootStack.Screen name="BusinessRegister" component={BusinessRegisterScreen} /></RootStack.Group>
       : !profile ? <RootStack.Screen name="AccountProvisioning">{() => <AccountProvisioningScreen error={profileError} />}</RootStack.Screen>
       : profile.role === 'business' && !profile.isApproved ? <RootStack.Screen name="PendingApproval" component={PendingApprovalScreen} />
@@ -71,5 +98,5 @@ export function RootNavigator() {
       : profile.role === 'business' && profile.isApproved ? <RootStack.Screen name="BusinessShell" component={BusinessRoleTabs} />
       : profile.role === 'administrator' ? <RootStack.Screen name="AdminShell" component={AdminRoleTabs} />
       : <RootStack.Screen name="AccountProvisioning">{() => <BootstrapError message="Your account has an unsupported role. Contact a Richfield administrator." />}</RootStack.Screen>}
-  </RootStack.Navigator></NavigationContainer>;
+  </RootStack.Navigator></NavigationContainer></TutorialHost>;
 }
