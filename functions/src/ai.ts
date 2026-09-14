@@ -9,7 +9,8 @@ import { defineSecret, defineString } from 'firebase-functions/params';
  */
 export const AI_PROVIDER = defineString('AI_PROVIDER', { default: 'gemini' });
 export const AI_API_KEY = defineSecret('AI_API_KEY');
-export const GEMINI_MODEL = defineString('GEMINI_MODEL', { default: 'gemini-2.5-flash' });
+export const GEMINI_MODEL = defineString('GEMINI_MODEL', { default: 'gemini-3.6-flash' });
+export const GEMINI_FALLBACK_MODEL = defineString('GEMINI_FALLBACK_MODEL', { default: 'gemini-3.5-flash' });
 export const OPENAI_MODEL = defineString('OPENAI_MODEL', { default: 'gpt-5.1' });
 export const ANTHROPIC_MODEL = defineString('ANTHROPIC_MODEL', { default: 'claude-sonnet-5' });
 
@@ -45,28 +46,47 @@ async function runGemini(messages: AiMessage[], maxTokens: number): Promise<stri
   }
   if (!contents.length) throw new Error('Gemini requires at least one user message.');
 
-  const generationConfig: Record<string, unknown> = { maxOutputTokens: maxTokens, temperature: 0.4 };
-  // 2.5-series models spend output tokens on hidden reasoning by default, which
-  // can exhaust the budget and return an empty answer. These tasks don't need it.
-  if (model.startsWith('gemini-2.5')) generationConfig.thinkingConfig = { thinkingBudget: 0 };
+  const configFor = (candidate: string) => {
+    const generationConfig: Record<string, unknown> = { maxOutputTokens: maxTokens, temperature: 0.4 };
+    // 2.5-series models spend output tokens on hidden reasoning by default, which
+    // can exhaust the budget and return an empty answer. These tasks don't need it.
+    if (candidate.startsWith('gemini-2.5')) generationConfig.thinkingConfig = { thinkingBudget: 0 };
+    // Gemini 3.x thinks by default too (~7s per reply); minimal brings it to ~2s,
+    // which matters for the tour, where every step waits on a reply.
+    else if (candidate.startsWith('gemini-3')) generationConfig.thinkingConfig = { thinkingLevel: 'minimal' };
+    return generationConfig;
+  };
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-    {
-      method: 'POST',
-      // Header rather than ?key= so the key never lands in URLs or request logs.
-      headers: { 'x-goog-api-key': apiKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
-        contents,
-        generationConfig,
-      }),
-    },
-  );
-  if (!response.ok) {
-    const detail = await response.text().catch(() => '');
-    throw new Error(`Gemini request failed with HTTP ${response.status}: ${detail.slice(0, 300)}`);
+  // Gemini returns 429/5xx when a model is briefly overloaded. Retry once, then
+  // try the fallback model, so a busy moment doesn't surface as a broken assistant.
+  const fallback = GEMINI_FALLBACK_MODEL.value();
+  const candidates = fallback && fallback !== model ? [model, fallback] : [model];
+  let response: Response | undefined;
+  let failure = '';
+  attempts: for (const candidate of candidates) {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(candidate)}:generateContent`,
+        {
+          method: 'POST',
+          // Header rather than ?key= so the key never lands in URLs or request logs.
+          headers: { 'x-goog-api-key': apiKey, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+            contents,
+            generationConfig: configFor(candidate),
+          }),
+        },
+      );
+      if (response.ok) break attempts;
+      const detail = await response.text().catch(() => '');
+      failure = `Gemini request to ${candidate} failed with HTTP ${response.status}: ${detail.slice(0, 300)}`;
+      if (![429, 500, 502, 503, 504].includes(response.status)) throw new Error(failure);
+      console.warn(`${failure} (attempt ${attempt + 1})`);
+      await new Promise((resolve) => setTimeout(resolve, 700 * (attempt + 1)));
+    }
   }
+  if (!response?.ok) throw new Error(failure || 'Gemini request failed.');
   const body = await response.json() as {
     candidates?: Array<{ content?: { parts?: Array<{ text?: string }> }; finishReason?: string }>;
     promptFeedback?: { blockReason?: string };
