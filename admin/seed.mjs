@@ -87,6 +87,8 @@ async function upsertUser({ email, displayName, role, isApproved = true, profile
     accountStatus: 'active',
     emailVerified: true,
     onboardingComplete: true,
+    // Re-seeding resets the guided tour so it shows again in the demo.
+    tutorialCompleted: false,
     visibility: DEFAULT_VISIBILITY,
     createdAt: now,
     updatedAt: now,
@@ -355,6 +357,11 @@ async function main() {
     updatedAt: Date.now(),
   });
 
+  // Thabo and Lerato are connected, so the demo can open a conversation straight away.
+  for (const [a, b] of [[studentUids[0], alumniUid], [alumniUid, studentUids[0]]]) {
+    await db.collection('connections').doc(a).collection('members').doc(b).set({ uid: b, status: 'accepted', connectedAt: now });
+  }
+
   console.log('Seeded accounts — every one uses the same password:\n');
   const rows = [
     ['Student', 'thabo@my.richfield.ac.za', studentUids[0]],
@@ -370,7 +377,7 @@ async function main() {
   console.log('\nAlso seeded: 1 alumni registry record (student number RF2018001),');
   console.log('2 opportunities (1 pending approval, 1 live), 5 skill-demand rows,');
   console.log('a full portfolio for Thabo (projects, certifications, badges, awards,');
-  console.log('leadership, societies, venture) and 1 recommendation from Lerato.');
+  console.log('leadership, societies, venture), 1 recommendation from Lerato, and a Thabo–Lerato connection.');
   console.log('Career pathways: Lerato, Sipho and Zanele (BSc IT). Events: 1 published, 1 draft.');
 }
 

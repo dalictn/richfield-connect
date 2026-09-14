@@ -116,8 +116,8 @@ export function FeedScreen() {
                 <Text variant="bodyLarge" style={styles.body}>{post.body}</Text>
               </Card.Content>
               <Card.Actions style={styles.actions}>
-                <Button icon="thumb-up-outline" onPress={() => void react(post.id)}>{post.reactionCount}</Button>
-                <Button icon="comment-outline" onPress={() => { setOpenComment(openComment === post.id ? null : post.id); setComment(''); }}>{post.commentCount}</Button>
+                <Button mode="text" icon="thumb-up-outline" onPress={() => void react(post.id)}>{post.reactionCount}</Button>
+                <Button mode="text" icon="comment-outline" onPress={() => { setOpenComment(openComment === post.id ? null : post.id); setComment(''); }}>{post.commentCount}</Button>
               </Card.Actions>
               {openComment === post.id ? (
                 <Card.Content style={styles.commentRow}>

@@ -125,7 +125,7 @@ export function AdminDashboardScreen() {
                     <Button mode="contained" loading={busy} disabled={busy} onPress={() => void change(user, 'active', 'Reactivate')}>Reactivate</Button>
                   )}
                   {current !== 'revoked' ? (
-                    <Button textColor={theme.colors.error} disabled={busy} onPress={() => void change(user, 'revoked', 'Revoke')}>Revoke</Button>
+                    <Button mode="text" textColor={theme.colors.error} disabled={busy} onPress={() => void change(user, 'revoked', 'Revoke')}>Revoke</Button>
                   ) : null}
                 </Card.Actions>
               ) : (

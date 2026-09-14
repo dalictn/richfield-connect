@@ -2,9 +2,8 @@
 
 Campus Round, 15 September 2026, 09:30. Slot: 30–45 minutes including the live demo.
 
-Every slide below maps to a rubric line. Items marked **⚠️ TONIGHT** depend on work
-being finished in tonight's sprint — confirm with Dali before presenting them, and
-move them to the roadmap slide if they did not land.
+Every slide below maps to a rubric line. The slide deck itself is generated from this outline
+(Richfield Connect deck, 18 slides) with screenshots of the running app.
 
 Suggested presenters follow the README ownership so each member speaks to what they
 built (rubric 13: *"All team members present a portion"*).
@@ -78,30 +77,34 @@ talent they are seeking.
 - Direct messaging between connected users only (enforced server-side).
 - Posts, reactions and comments.
 - **Role-differentiated feed:** every post is scored per viewer:
-  `role affinity × 100 + freshness decay + reactions × 2 + comments × 3`.
+  `role affinity × 100 + freshness × 40 + reactions × 2 + comments × 3` (freshness decays over 72 hours).
   A student sees employers and alumni ranked higher; an employer sees students and alumni.
 
 ## Slide 8 — Real-time architecture *(rubric 8)*
 - Firestore `onSnapshot` listeners for feed, messages, connections and approvals — **no polling**.
 - Firestore-triggered Cloud Functions send **FCM push notifications** for connection requests,
   acceptances, messages, opportunity matches and announcements.
-- ⚠️ TONIGHT: in-app notification inbox so alerts are visible on every platform.
+- In-app notification inbox: a bell on every tab with a live unread badge and a toast for new alerts.
+- Event notifications are targeted: only students whose programme or interests match the event's tags.
 
 ## Slide 9 — AI profile assistant & onboarding *(rubric 6, 12)*
 - Structured first-login onboarding: identity → programme & campus → skills → evidence → review.
 - An **AI coach** at every step gives context-aware feedback: it receives the member's live profile, so
   it can say *"no skills listed means you won't appear in employer searches"* instead of generic tips.
 - An always-available assistant tab for ongoing questions.
-- **Genuine AI, not a script:** ⚠️ TONIGHT Google Gemini, called only from Cloud Functions so the key
-  never reaches a device; the last 12 messages provide conversation memory.
+- **Interactive guided tour per role:** it moves through the member's key screens and the AI writes each
+  explanation from their live profile; members can ask questions at any step.
+- **Genuine AI, not a script:** Google Gemini, called only from Cloud Functions so the key never reaches
+  a device; the last 12 messages provide conversation memory; automatic retry and fallback model.
 
 ## Slide 10 — Opportunities & careers *(rubric 5)*
 - Businesses post internships, learnerships, part-time and graduate roles.
 - **Admin approval gate:** listings are invisible to students until published.
 - **Smart matching:** on approval, every student profile is scored
-  (`skill overlap × 0.85 + programme match × 0.15`); matched students get a push notification —
-  targeted, not a broadcast.
-- ⚠️ TONIGHT: filters, career pathway explorer by programme, institutional events.
+  (`skill similarity × 0.85 + programme match × 0.15`); students see a match %, and matched students get
+  a push notification — targeted, not a broadcast.
+- Search and type filters with a "matched to me" switch, a career pathway explorer by programme, and
+  institutional events with RSVP.
 
 ## Slide 11 — System architecture diagram *(rubric 9, 12)*
 Redraw this in the deck (draw.io / Excalidraw / PowerPoint SmartArt):
@@ -185,11 +188,11 @@ time, content volume (posts, videos, opportunities), open moderation flags, pend
 ## Slide 16 — Administrator panel *(rubric 2)*
 Console hub with live counts → user management (approve business, suspend, revoke) → opportunity
 approvals → moderation queue (reported posts, comments, profiles, recommendations) → platform
-analytics → broadcast centre. ⚠️ TONIGHT: event management.
+analytics → broadcast centre → event management.
 
 ## Slide 17 — Roadmap / what's next *(be honest — judges reward it)*
-List only what did not land tonight, for example: native builds on device, short-form video
-upload with transcoding, interactive screen tutorial, CV and photo file upload.
+List only what did not land, for example: signed Android/iOS release builds, short-form video
+upload in the app, CV and photo file upload, production deployment with App Check enforced.
 
 ## Slide 18 — Thank you / Q&A
 
@@ -197,9 +200,17 @@ upload with transcoding, interactive screen tutorial, CV and photo file upload.
 
 ## Live demo script (~15 minutes)
 
-Run on the **most powerful laptop**, not an 8 GB machine. Seed data first:
+Run on the **most powerful laptop**, not an 8 GB machine. For a clean demo, **restart the emulators**
+(they hold data in memory, so a restart wipes last night's test data), then seed:
 `npm run emulators` → `npm run seed` → `npm run web:emulators`. Password for every
 account: `Richfield#2026`. Keep a second browser profile signed in as admin.
+
+- **Guided tours** show on first sign-in after seeding; finishing or skipping one marks it done
+  (replay from the Account tab).
+- **Thabo and Lerato are pre-connected**, so step 5's message works without a live accept.
+- **Gemini free-tier quota** is per model per day and resets around 09:00 SAST. The app uses
+  `gemini-3.1-flash-lite` with `gemini-3.6-flash` as fallback (`functions/.env`). Avoid rehearsing
+  AI-heavy flows repeatedly this morning, and use a browser with dark-mode extensions disabled.
 
 | # | Presenter | Sign in as | Show | Narration cue |
 |---|---|---|---|---|

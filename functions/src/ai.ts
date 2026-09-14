@@ -9,8 +9,8 @@ import { defineSecret, defineString } from 'firebase-functions/params';
  */
 export const AI_PROVIDER = defineString('AI_PROVIDER', { default: 'gemini' });
 export const AI_API_KEY = defineSecret('AI_API_KEY');
-export const GEMINI_MODEL = defineString('GEMINI_MODEL', { default: 'gemini-3.6-flash' });
-export const GEMINI_FALLBACK_MODEL = defineString('GEMINI_FALLBACK_MODEL', { default: 'gemini-3.5-flash' });
+export const GEMINI_MODEL = defineString('GEMINI_MODEL', { default: 'gemini-3.1-flash-lite' });
+export const GEMINI_FALLBACK_MODEL = defineString('GEMINI_FALLBACK_MODEL', { default: 'gemini-3.6-flash' });
 export const OPENAI_MODEL = defineString('OPENAI_MODEL', { default: 'gpt-5.1' });
 export const ANTHROPIC_MODEL = defineString('ANTHROPIC_MODEL', { default: 'claude-sonnet-5' });
 
