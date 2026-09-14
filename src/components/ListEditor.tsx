@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Button, Card, Chip, IconButton, Text, TextInput, useTheme } from 'react-native-paper';
 
 export interface FieldSpec<T> {
   key: Extract<keyof T, string>;
@@ -39,69 +40,60 @@ export function ListEditor<T extends object>({
   max?: number;
   addLabel?: string;
 }) {
+  const theme = useTheme();
   const update = (index: number, key: Extract<keyof T, string>, value: unknown) => {
     onChange(items.map((item, i) => (i === index ? { ...item, [key]: value } : item)));
   };
 
   return (
     <View style={styles.root}>
-      <Text style={styles.title}>{title}</Text>
-      {description ? <Text style={styles.description}>{description}</Text> : null}
+      <Text variant="titleMedium">{title}</Text>
+      {description ? <Text variant="bodySmall" style={[styles.description, { color: theme.colors.onSurfaceVariant }]}>{description}</Text> : null}
 
       {items.map((item, index) => (
-        <View key={index} style={styles.card}>
+        <Card key={index} mode="outlined" style={styles.card}>
           <View style={styles.cardHead}>
-            <Text style={styles.cardIndex}>{index + 1}</Text>
-            <Pressable onPress={() => onChange(items.filter((_, i) => i !== index))} hitSlop={8}>
-              <Text style={styles.remove}>Remove</Text>
-            </Pressable>
+            <Text variant="labelLarge" style={{ color: theme.colors.onSurfaceVariant }}>#{index + 1}</Text>
+            <IconButton icon="delete-outline" size={20} iconColor={theme.colors.error} onPress={() => onChange(items.filter((_, i) => i !== index))} accessibilityLabel={`Remove entry ${index + 1}`} />
           </View>
-
-          <View style={styles.fields}>
+          <Card.Content style={styles.fields}>
             {fields.map((field) => {
               const value = (item as Record<string, unknown>)[field.key];
               if (field.options) {
                 return (
                   <View key={field.key} style={styles.full}>
-                    <Text style={styles.label}>{field.label}</Text>
+                    <Text variant="labelMedium" style={styles.label}>{field.label}</Text>
                     <View style={styles.chips}>
-                      {field.options.map((option) => {
-                        const active = String(value ?? '') === option;
-                        return (
-                          <Pressable key={option} onPress={() => update(index, field.key, option)} style={[styles.chip, active && styles.chipActive]}>
-                            <Text style={active ? styles.chipActiveText : styles.chipText}>{option}</Text>
-                          </Pressable>
-                        );
-                      })}
+                      {field.options.map((option) => (
+                        <Chip key={option} compact selected={String(value ?? '') === option} onPress={() => update(index, field.key, option)}>{option}</Chip>
+                      ))}
                     </View>
                   </View>
                 );
               }
               return (
-                <View key={field.key} style={field.half ? styles.half : styles.full}>
-                  <Text style={styles.label}>{field.label}</Text>
-                  <TextInput
-                    style={[styles.input, field.multiline && styles.multiline]}
-                    value={value === undefined || value === null ? '' : String(value)}
-                    placeholder={field.placeholder}
-                    placeholderTextColor="#98a2b3"
-                    multiline={field.multiline}
-                    keyboardType={field.numeric ? 'number-pad' : 'default'}
-                    onChangeText={(next) => update(index, field.key, field.numeric ? (next.replace(/[^0-9]/g, '') || undefined) : next)}
-                  />
-                </View>
+                <TextInput
+                  key={field.key}
+                  mode="outlined"
+                  dense
+                  label={field.label}
+                  style={field.half ? styles.half : styles.full}
+                  value={value === undefined || value === null ? '' : String(value)}
+                  placeholder={field.placeholder}
+                  multiline={field.multiline}
+                  keyboardType={field.numeric ? 'number-pad' : 'default'}
+                  onChangeText={(next) => update(index, field.key, field.numeric ? (next.replace(/[^0-9]/g, '') ? Number(next.replace(/[^0-9]/g, '')) : undefined) : next)}
+                />
               );
             })}
-          </View>
-        </View>
+          </Card.Content>
+        </Card>
       ))}
 
       {items.length < max ? (
-        <Pressable onPress={() => onChange([...items, blank()])} style={styles.add}>
-          <Text style={styles.addText}>+ {addLabel}</Text>
-        </Pressable>
+        <Button mode="outlined" icon="plus" onPress={() => onChange([...items, blank()])} style={styles.add}>{addLabel}</Button>
       ) : (
-        <Text style={styles.limit}>Maximum of {max} entries reached.</Text>
+        <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, fontStyle: 'italic' }}>Maximum of {max} entries reached.</Text>
       )}
     </View>
   );
@@ -109,24 +101,13 @@ export function ListEditor<T extends object>({
 
 const styles = StyleSheet.create({
   root: { marginBottom: 22 },
-  title: { fontSize: 17, fontWeight: '800' },
-  description: { color: '#667085', marginTop: 3, marginBottom: 10, lineHeight: 19 },
-  card: { borderWidth: 1, borderColor: '#e4e7ec', borderRadius: 12, padding: 12, marginBottom: 10, backgroundColor: '#fff' },
-  cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  cardIndex: { fontWeight: '800', color: '#98a2b3' },
-  remove: { color: '#b42318', fontWeight: '700' },
-  fields: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  description: { marginTop: 2, marginBottom: 8, lineHeight: 18 },
+  card: { marginTop: 8, marginBottom: 4 },
+  cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingLeft: 16 },
+  fields: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingBottom: 14 },
   full: { width: '100%' },
-  half: { flexGrow: 1, flexBasis: 130 },
-  label: { fontSize: 12, fontWeight: '700', color: '#475467', marginBottom: 4 },
-  input: { borderWidth: 1, borderColor: '#d0d5dd', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 9, minHeight: 40, backgroundColor: '#fff' },
-  multiline: { minHeight: 76, textAlignVertical: 'top' },
+  half: { flexGrow: 1, flexBasis: 140 },
+  label: { marginBottom: 4 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { paddingHorizontal: 11, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: '#d0d5dd' },
-  chipActive: { backgroundColor: '#111827', borderColor: '#111827' },
-  chipText: { fontSize: 12 },
-  chipActiveText: { fontSize: 12, color: '#fff', fontWeight: '700' },
-  add: { paddingVertical: 11, borderRadius: 8, borderWidth: 1, borderColor: '#111827', borderStyle: 'dashed', alignItems: 'center' },
-  addText: { fontWeight: '700' },
-  limit: { color: '#98a2b3', fontStyle: 'italic' },
+  add: { marginTop: 10, borderStyle: 'dashed' },
 });

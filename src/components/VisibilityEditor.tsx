@@ -1,14 +1,15 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Card, Chip, Text, useTheme } from 'react-native-paper';
 import { PROFILE_SECTIONS, SECTION_LABELS } from '../types/portfolio';
 import type { ProfileSection, ProfileVisibility, SectionAudience } from '../types/portfolio';
 
-const AUDIENCES: Array<{ key: keyof SectionAudience; label: string; hint: string }> = [
-  { key: 'public', label: 'Everyone', hint: 'Any signed-in member of the platform' },
-  { key: 'connections', label: 'Connections', hint: 'People you have accepted' },
-  { key: 'students', label: 'Students', hint: 'Currently enrolled students' },
-  { key: 'alumni', label: 'Alumni', hint: 'Richfield and AAA graduates' },
-  { key: 'business', label: 'Employers', hint: 'Verified recruiters' },
+const AUDIENCES: Array<{ key: keyof SectionAudience; label: string; icon: string; hint: string }> = [
+  { key: 'public', label: 'Everyone', icon: 'earth', hint: 'Any signed-in member of the platform' },
+  { key: 'connections', label: 'Connections', icon: 'account-multiple-check', hint: 'People you have accepted' },
+  { key: 'students', label: 'Students', icon: 'school', hint: 'Currently enrolled students' },
+  { key: 'alumni', label: 'Alumni', icon: 'account-star', hint: 'Richfield and AAA graduates' },
+  { key: 'business', label: 'Employers', icon: 'domain', hint: 'Verified recruiters' },
 ];
 
 /**
@@ -26,6 +27,7 @@ export function VisibilityEditor({
   visibility: ProfileVisibility;
   onChange: (next: ProfileVisibility) => void;
 }) {
+  const theme = useTheme();
   const toggle = (section: ProfileSection, audience: keyof SectionAudience) => {
     const current = visibility[section];
     onChange({ ...visibility, [section]: { ...current, [audience]: !current[audience] } });
@@ -33,47 +35,56 @@ export function VisibilityEditor({
 
   return (
     <View>
-      <Text style={styles.intro}>
+      <Text variant="bodyMedium" style={[styles.intro, { color: theme.colors.onSurfaceVariant }]}>
         Each section of your profile is hidden unless you share it. Administrators can always see your
         profile for moderation, and your student number never leaves the server.
       </Text>
 
-      <View style={styles.legend}>
-        {AUDIENCES.map((audience) => (
-          <Text key={audience.key} style={styles.legendItem}>
-            <Text style={styles.legendLabel}>{audience.label}</Text> — {audience.hint}
-          </Text>
-        ))}
-      </View>
+      <Card mode="contained" style={[styles.legend, { backgroundColor: theme.colors.surfaceVariant }]}>
+        <Card.Content style={styles.legendBody}>
+          {AUDIENCES.map((audience) => (
+            <Text key={audience.key} variant="bodySmall">
+              <Text variant="labelMedium">{audience.label}</Text> — {audience.hint}
+            </Text>
+          ))}
+        </Card.Content>
+      </Card>
 
       {PROFILE_SECTIONS.map((section) => {
         const row = visibility[section];
         const everyone = row.public;
+        const hidden = !everyone && !row.connections && !row.students && !row.alumni && !row.business;
         return (
-          <View key={section} style={styles.row}>
-            <Text style={styles.section}>{SECTION_LABELS[section]}</Text>
-            <View style={styles.toggles}>
-              {AUDIENCES.map((audience) => {
-                const on = row[audience.key];
-                const covered = everyone && audience.key !== 'public';
-                return (
-                  <Pressable
-                    key={audience.key}
-                    onPress={() => toggle(section, audience.key)}
-                    style={[styles.toggle, on && styles.toggleOn, covered && !on && styles.toggleCovered]}
-                  >
-                    <Text style={on ? styles.toggleOnText : covered ? styles.toggleCoveredText : styles.toggleText}>
+          <Card key={section} mode="outlined" style={styles.row}>
+            <Card.Content>
+              <Text variant="titleSmall" style={styles.section}>{SECTION_LABELS[section]}</Text>
+              <View style={styles.toggles}>
+                {AUDIENCES.map((audience) => {
+                  const on = row[audience.key];
+                  const covered = everyone && audience.key !== 'public';
+                  return (
+                    <Chip
+                      key={audience.key}
+                      compact
+                      icon={on || covered ? 'check' : audience.icon}
+                      selected={on}
+                      showSelectedCheck={false}
+                      mode={on ? 'flat' : 'outlined'}
+                      style={on ? { backgroundColor: theme.colors.secondaryContainer } : covered ? styles.covered : undefined}
+                      onPress={() => toggle(section, audience.key)}
+                    >
                       {audience.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            {everyone ? <Text style={styles.note}>Visible to everyone — the narrower audiences below are already covered.</Text> : null}
-            {!everyone && !row.connections && !row.students && !row.alumni && !row.business
-              ? <Text style={styles.private}>Private — only you and administrators.</Text>
-              : null}
-          </View>
+                    </Chip>
+                  );
+                })}
+              </View>
+              {everyone ? (
+                <Text variant="bodySmall" style={[styles.note, { color: theme.colors.onSurfaceVariant }]}>Visible to everyone, so the narrower audiences are already covered.</Text>
+              ) : hidden ? (
+                <Text variant="bodySmall" style={[styles.note, { color: theme.colors.onSurfaceVariant }]}>Private — only you and administrators.</Text>
+              ) : null}
+            </Card.Content>
+          </Card>
         );
       })}
     </View>
@@ -81,19 +92,12 @@ export function VisibilityEditor({
 }
 
 const styles = StyleSheet.create({
-  intro: { color: '#667085', lineHeight: 20, marginBottom: 14 },
-  legend: { backgroundColor: '#f2f4f7', borderRadius: 10, padding: 12, marginBottom: 16, gap: 4 },
-  legendItem: { fontSize: 12, color: '#475467', lineHeight: 17 },
-  legendLabel: { fontWeight: '800', color: '#111827' },
-  row: { borderWidth: 1, borderColor: '#e4e7ec', borderRadius: 12, padding: 12, marginBottom: 10, backgroundColor: '#fff' },
-  section: { fontWeight: '800', marginBottom: 9 },
+  intro: { lineHeight: 20, marginBottom: 12 },
+  legend: { marginBottom: 14 },
+  legendBody: { gap: 4 },
+  row: { marginBottom: 10 },
+  section: { marginBottom: 8 },
   toggles: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  toggle: { paddingHorizontal: 11, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: '#d0d5dd' },
-  toggleOn: { backgroundColor: '#111827', borderColor: '#111827' },
-  toggleCovered: { borderStyle: 'dashed', backgroundColor: '#f9fafb' },
-  toggleText: { fontSize: 12 },
-  toggleOnText: { fontSize: 12, color: '#fff', fontWeight: '700' },
-  toggleCoveredText: { fontSize: 12, color: '#98a2b3' },
-  note: { fontSize: 12, color: '#667085', marginTop: 8, fontStyle: 'italic' },
-  private: { fontSize: 12, color: '#98a2b3', marginTop: 8, fontStyle: 'italic' },
+  covered: { opacity: 0.55 },
+  note: { marginTop: 8, fontStyle: 'italic' },
 });
