@@ -29,5 +29,15 @@ export const theme: MD3Theme = {
     onSurfaceVariant: '#475467',
     outline: '#D0D5DD',
     outlineVariant: '#E4E7EC',
+    // MD3's default elevation tints are lavender, which clashes with the navy
+    // brand on raised surfaces (cards, dialogs, the tour). Neutral blue-greys instead.
+    elevation: {
+      level0: 'transparent',
+      level1: '#F8FAFC',
+      level2: '#F2F5F9',
+      level3: '#EDF1F6',
+      level4: '#EBEFF5',
+      level5: '#E7ECF3',
+    },
   },
 };

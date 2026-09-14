@@ -85,10 +85,16 @@ function AdminRoleTabs() { return <AdminTabs.Navigator screenOptions={tabScreenO
 function getLinking(): LinkingOptions<RootStackParamList> { const projectId = firebaseProjectId(); return { prefixes: ['richfieldconnect://', `https://${projectId}.firebaseapp.com`] }; }
 function BootstrapError({ message }: { message: string }) { return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}><Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Account state unavailable</Text><Text>{message}</Text></View>; }
 
+// The role shells render their own tab headers, and these full-screen states have
+// no screen to go back to, so the root stack's default header (which shows raw
+// route names such as "AdminShell") is hidden for them. Registration screens keep
+// it for the back button to Login.
+const HEADERLESS_ROUTES = new Set(['Login', 'Onboarding', 'PendingApproval', 'AccountProvisioning', 'StudentShell', 'AlumniShell', 'BusinessShell', 'AdminShell']);
+
 export function RootNavigator() {
   const { loading, firebaseUser, profile, profileError } = useAuth();
   if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" />;
-  return <TutorialHost><NavigationContainer ref={navigationRef} linking={getLinking()}><RootStack.Navigator>
+  return <TutorialHost><NavigationContainer ref={navigationRef} linking={getLinking()}><RootStack.Navigator screenOptions={({ route }) => ({ headerShown: !HEADERLESS_ROUTES.has(route.name) })}>
     {!firebaseUser ? <RootStack.Group><RootStack.Screen name="Login" component={LoginScreen} /><RootStack.Screen name="RegisterChoice" component={RegisterChoiceScreen} /><RootStack.Screen name="StudentRegister" component={StudentRegisterScreen} /><RootStack.Screen name="AlumniVerify" component={AlumniVerifyScreen} /><RootStack.Screen name="AlumniPending" component={AlumniEmailLinkPendingScreen} /><RootStack.Screen name="BusinessRegister" component={BusinessRegisterScreen} /></RootStack.Group>
       : !profile ? <RootStack.Screen name="AccountProvisioning">{() => <AccountProvisioningScreen error={profileError} />}</RootStack.Screen>
       : profile.role === 'business' && !profile.isApproved ? <RootStack.Screen name="PendingApproval" component={PendingApprovalScreen} />

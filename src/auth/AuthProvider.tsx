@@ -45,20 +45,49 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       }
 
       setLoading(true);
+      // Per sign-in state. The profile listener fires on every write to the
+      // user's document, and the activity heartbeat itself writes to it, so both
+      // side effects below must be guarded or they feed each other in a loop.
+      let heartbeatSent = false;
+      let claimsKey = '';
       unsubscribeProfile = subscribeUserProfile<UserProfile>(
         user.uid,
         (nextProfile) => {
           if (!nextProfile) {
             setProfile(null);
             setProfileError('Your account profile is still being provisioned.');
+            // A missing profile can also mean this session belongs to an account
+            // that no longer exists (for example after the demo data is re-seeded).
+            // A forced refresh fails for deleted accounts; sign out so the member
+            // lands on Login instead of a provisioning screen they can't complete.
+            void getCurrentUserIdToken(true).catch((error: { code?: string }) => {
+              // The auth backend answers a deleted account's refresh with
+              // INVALID_REFRESH_TOKEN, which the web SDK reports as invalid-user-token.
+              if (['auth/user-not-found', 'auth/user-token-expired', 'auth/user-disabled', 'auth/invalid-user-token'].includes(error?.code ?? '')) {
+                console.warn('Signed-in account no longer exists; signing out.', error.code);
+                void signOutCurrentUser();
+              }
+            });
           } else {
             setProfile(nextProfile);
             setProfileError(null);
-            void getCurrentUserIdToken(true).catch((error) => {
-              console.warn('Unable to refresh role claims after profile sync', error);
-            });
+            // Only refresh the ID token when a claim-backed field changes.
+            const status = (nextProfile as { accountStatus?: string }).accountStatus ?? '';
+            const nextClaimsKey = `${nextProfile.role}|${nextProfile.isApproved}|${status}`;
+            if (nextClaimsKey !== claimsKey) {
+              const firstSync = claimsKey === '';
+              claimsKey = nextClaimsKey;
+              if (!firstSync) {
+                void getCurrentUserIdToken(true).catch((error) => {
+                  console.warn('Unable to refresh role claims after profile sync', error);
+                });
+              }
+            }
+            if (!heartbeatSent) {
+              heartbeatSent = true;
+              void callFunction<Record<string, never>, { ok: boolean }>('recordUserActivity', {}).catch((error) => console.warn('Activity heartbeat failed', error));
+            }
           }
-          void callFunction<Record<string, never>, { ok: boolean }>('recordUserActivity', {}).catch((error) => console.warn('Activity heartbeat failed', error));
           setLoading(false);
         },
         (error) => {
