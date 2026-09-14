@@ -1,51 +1,59 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
+import { Avatar, Button, Card, HelperText, Text, useTheme } from 'react-native-paper';
 import { completeStudentRegistration } from '../../auth/authService';
-import { notify } from '../../ui/alert';
 import { useAuth } from '../../auth/AuthProvider';
 
 export function AccountProvisioningScreen({ error }: { error: string | null }) {
   const { firebaseUser, logout } = useAuth();
+  const theme = useTheme();
   const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState('');
 
   const complete = async () => {
-    setBusy(true);
+    setBusy(true); setFailure('');
     try {
       await firebaseUser?.reload();
       await completeStudentRegistration();
     } catch (err) {
-      notify('Account setup', err instanceof Error ? err.message : 'Unable to complete account setup.');
+      setFailure(err instanceof Error ? err.message : 'Unable to complete account setup.');
     } finally {
       setBusy(false);
     }
   };
 
+  const unverified = firebaseUser?.emailVerified === false;
+  const message = failure || error;
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Finish account verification</Text>
-      <Text style={styles.body}>
-        Your Firebase identity exists, but the Richfield profile has not been activated yet.
-      </Text>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {firebaseUser?.emailVerified === false ? (
-        <Text style={styles.body}>Check your institutional inbox, verify your email, then return here.</Text>
-      ) : null}
-      <Pressable style={styles.button} onPress={() => void complete()} disabled={busy}>
-        {busy ? <ActivityIndicator color="#FFF" /> : <Text style={styles.buttonText}>I've verified my email</Text>}
-      </Pressable>
-      <Pressable style={styles.link} onPress={() => void logout()}>
-        <Text>Sign out</Text>
-      </Pressable>
-    </View>
+    <ScrollView style={{ backgroundColor: theme.colors.background }} contentContainerStyle={styles.page}>
+      <Card mode="elevated" style={styles.card}>
+        <Card.Content style={styles.body}>
+          <Avatar.Icon size={64} icon={unverified ? 'email-alert-outline' : 'account-cog-outline'} />
+          <Text variant="headlineSmall" style={styles.title}>Finish account verification</Text>
+          <Text variant="bodyLarge" style={[styles.text, { color: theme.colors.onSurfaceVariant }]}>
+            {unverified
+              ? `Open the verification link we sent to ${firebaseUser?.email ?? 'your institutional inbox'}, then come back here.`
+              : 'Your sign-in exists, but your Richfield profile has not been activated yet.'}
+          </Text>
+          {message ? <HelperText type="error" visible style={styles.text}>{message}</HelperText> : null}
+        </Card.Content>
+        <Card.Actions style={styles.actions}>
+          <Button icon="logout" onPress={() => void logout()}>Sign out</Button>
+          <Button mode="contained" icon="check" loading={busy} disabled={busy} onPress={() => void complete()}>
+            I've verified my email
+          </Button>
+        </Card.Actions>
+      </Card>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24, gap: 16 },
-  title: { fontSize: 26, fontWeight: '800' },
-  body: { fontSize: 16, lineHeight: 24, color: '#4B5563' },
-  error: { color: '#B91C1C' },
-  button: { minHeight: 52, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#111827' },
-  buttonText: { color: '#FFF', fontWeight: '800' },
-  link: { alignItems: 'center', padding: 12 },
+  page: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  card: { width: '100%', maxWidth: 480 },
+  body: { alignItems: 'center', gap: 12, paddingTop: 24 },
+  title: { textAlign: 'center', fontWeight: '700' },
+  text: { textAlign: 'center', lineHeight: 24 },
+  actions: { padding: 12 },
 });

@@ -1,158 +1,109 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Avatar, Button, Card, HelperText, ProgressBar, SegmentedButtons, Text, TextInput, useTheme } from 'react-native-paper';
 import { beginAlumniVerification } from '../auth/authService';
 
+type Attribute = 'nationalId' | 'birthdate';
+
 export function AlumniVerifyScreen({ navigation }: any) {
+  const theme = useTheme();
   const [email, setEmail] = useState('');
   const [studentNumber, setStudentNumber] = useState('');
+  const [attribute, setAttribute] = useState<Attribute>('nationalId');
   const [nationalId, setNationalId] = useState('');
   const [birthdate, setBirthdate] = useState('');
   const [busy, setBusy] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
   async function submit() {
-    if (!email.trim() || !studentNumber.trim()) {
-      setStatusMessage('Please enter your email and student number.');
+    const secondFactor = attribute === 'nationalId' ? nationalId.trim() : birthdate.trim();
+    if (!email.trim() || !studentNumber.trim() || !secondFactor) {
+      setError(`Enter your email, student number and ${attribute === 'nationalId' ? 'national ID' : 'birthdate'}.`);
+      return;
+    }
+    if (attribute === 'birthdate' && !/^\d{4}-\d{2}-\d{2}$/.test(secondFactor)) {
+      setError('Enter your birthdate as YYYY-MM-DD.');
       return;
     }
 
-    setBusy(true);
-    setStatusMessage(null);
-
+    setBusy(true); setError('');
     try {
-      // Try live cloud function verification
-      const accepted = await beginAlumniVerification(
+      await beginAlumniVerification(
         email.trim(),
         studentNumber.trim().toUpperCase(),
-        nationalId.trim(),
-        birthdate.trim()
+        attribute === 'nationalId' ? secondFactor : '',
+        attribute === 'birthdate' ? secondFactor : '',
       );
-
-      // Successfully contacted backend
+      // The response is identical whether or not a registry record matched, so
+      // the next screen never reveals which details were correct.
       navigation.replace('AlumniPending');
-    } catch (error: any) {
-      console.warn('Alumni cloud verification fallback triggered:', error);
-      
-      // DEMO RESILIENCE FALLBACK:
-      // If cloud functions are not deployed to Google Cloud yet,
-      // allow the user journey to proceed to the next step rather than blocking the demo.
-      setStatusMessage('Verification request accepted. Proceeding to email confirmation...');
-      
-      setTimeout(() => {
-        navigation.replace('AlumniPending');
-      }, 1000);
+    } catch (e) {
+      // A failure here is a transport or validation problem, not a registry
+      // mismatch, so it is shown rather than papered over.
+      setError(e instanceof Error ? e.message : 'We could not start verification. Please try again.');
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.scrollContainer}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.card}>
-        <Text style={styles.title}>Alumni verification</Text>
-        <Text style={styles.body}>
-          Step 1 of 2. Enter your former student number and one additional identity attribute.
-        </Text>
+    <ScrollView style={{ backgroundColor: theme.colors.background }} contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
+      <Card mode="elevated" style={styles.card}>
+        <Card.Title
+          title="Alumni verification"
+          subtitle="Step 1 of 2 · match your student record"
+          titleVariant="titleLarge"
+          left={(props) => <Avatar.Icon {...props} icon="account-star" />}
+        />
+        <ProgressBar progress={0.5} style={styles.progress} />
+        <Card.Content style={styles.form}>
+          <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, lineHeight: 21 }}>
+            We check your former student number and one identity attribute against the Richfield graduate registry,
+            then email you a secure sign-in link.
+          </Text>
 
-        {statusMessage && (
-          <View style={styles.banner}>
-            <Text style={styles.bannerText}>{statusMessage}</Text>
+          <TextInput mode="outlined" label="Personal email" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} left={<TextInput.Icon icon="email-outline" />} />
+          <TextInput mode="outlined" label="Former student number" placeholder="e.g. ST1001" autoCapitalize="characters" value={studentNumber} onChangeText={setStudentNumber} left={<TextInput.Icon icon="card-account-details-outline" />} />
+
+          <Text variant="labelLarge" style={styles.label}>Verify with</Text>
+          <SegmentedButtons
+            value={attribute}
+            onValueChange={(value) => { setAttribute(value as Attribute); setError(''); }}
+            buttons={[
+              { value: 'nationalId', label: 'National ID', icon: 'badge-account-horizontal-outline' },
+              { value: 'birthdate', label: 'Birthdate', icon: 'cake-variant-outline' },
+            ]}
+          />
+          {attribute === 'nationalId' ? (
+            <TextInput mode="outlined" label="South African ID number" keyboardType="number-pad" value={nationalId} onChangeText={(v) => setNationalId(v.replace(/[^0-9]/g, ''))} maxLength={13} />
+          ) : (
+            <TextInput mode="outlined" label="Birthdate" placeholder="YYYY-MM-DD" value={birthdate} onChangeText={setBirthdate} maxLength={10} />
+          )}
+
+          <View style={[styles.privacy, { backgroundColor: theme.colors.surfaceVariant }]}>
+            <Avatar.Icon size={28} icon="shield-lock-outline" />
+            <Text variant="bodySmall" style={[styles.privacyText, { color: theme.colors.onSurfaceVariant }]}>
+              Registry details are checked server-side and never sent back to the app. We don't reveal whether a record matched.
+            </Text>
           </View>
-        )}
 
-        <TextInput
-          style={styles.input}
-          placeholder="Personal email"
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Former student number (e.g. ST1001)"
-          autoCapitalize="characters"
-          value={studentNumber}
-          onChangeText={setStudentNumber}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="National ID (or use birthdate below)"
-          value={nationalId}
-          onChangeText={setNationalId}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Birthdate (YYYY-MM-DD)"
-          value={birthdate}
-          onChangeText={setBirthdate}
-        />
-
-        <Text style={styles.note}>
-          National ID or birthdate is required. Your registry details are never exposed to the app.
-        </Text>
-
-        <Pressable style={styles.button} onPress={() => void submit()} disabled={busy}>
-          {busy ? <ActivityIndicator color="#FFF" /> : <Text style={styles.buttonText}>Continue</Text>}
-        </Pressable>
-      </View>
+          {error ? <HelperText type="error" visible accessibilityRole="alert">{error}</HelperText> : null}
+          <Button mode="contained" icon="arrow-right" loading={busy} disabled={busy} onPress={() => void submit()} contentStyle={styles.buttonContent}>
+            Continue
+          </Button>
+        </Card.Content>
+      </Card>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 24,
-    paddingHorizontal: 16,
-    backgroundColor: '#F8FAFC',
-  },
-  card: {
-    width: '100%',
-    maxWidth: 480,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
-    gap: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  title: { fontSize: 26, fontWeight: '900', color: '#0F172A' },
-  body: { color: '#4B5563', lineHeight: 22 },
-  banner: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
-  },
-  bannerText: { color: '#1D4ED8', fontSize: 14, fontWeight: '600', textAlign: 'center' },
-  note: { color: '#64748B', fontSize: 13, lineHeight: 18 },
-  input: {
-    minHeight: 50,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    fontSize: 15,
-    backgroundColor: '#FFFFFF',
-  },
-  button: {
-    minHeight: 52,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#111827',
-    marginTop: 4,
-  },
-  buttonText: { color: '#FFF', fontWeight: '800', fontSize: 16 },
+  page: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  card: { width: '100%', maxWidth: 480 },
+  progress: { marginHorizontal: 16 },
+  form: { gap: 10, paddingVertical: 12 },
+  label: { marginTop: 4 },
+  privacy: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10 },
+  privacyText: { flex: 1, lineHeight: 18 },
+  buttonContent: { flexDirection: 'row-reverse', paddingVertical: 6 },
 });
