@@ -34,6 +34,19 @@ export function subscribePosts(ids: string[], onNext: (posts: SocialPost[]) => v
   return onSnapshot(q, (snap) => onNext(snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) })) as SocialPost[]), onError);
 }
 
+// One listener per visible post on the member's own reaction doc (posts/{id}/reactions/{uid}),
+// so a like made on another device shows up here too.
+export function subscribeMyReactions(uid: string, postIds: string[], onNext: (likedPostIds: Set<string>) => void, onError: (error: Error) => void): () => void {
+  const ids = Array.from(new Set(postIds)).slice(0, 30);
+  if (ids.length === 0) { onNext(new Set()); return () => undefined; }
+  const liked = new Set<string>();
+  const unsubscribes = ids.map((id) => onSnapshot(doc(collection(doc(collection(db, 'posts'), id), 'reactions'), uid), (snap) => {
+    if (snap.exists()) liked.add(id); else liked.delete(id);
+    onNext(new Set(liked));
+  }, onError));
+  return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
+}
+
 export function subscribeConversations(uid: string, onNext: (items: Conversation[]) => void, onError: (error: Error) => void): () => void {
   const q = query(collection(db, 'conversations'), where('memberUids', 'array-contains', uid), orderBy('updatedAt', 'desc'), limit(50));
   return onSnapshot(q, (snap) => onNext(snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) })) as Conversation[]), onError);

@@ -1,4 +1,5 @@
 import React from 'react';
+import { theme } from '../ui/theme';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { InboxBell } from '../notifications/NotificationCenter';
 import { ConnectionsScreen } from '../screens/social/ConnectionsScreen';
@@ -21,7 +22,7 @@ const Stack = createNativeStackNavigator<ConnectionsStackParamList>();
 
 export function ConnectionsStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerRight: () => <InboxBell /> }}>
+    <Stack.Navigator screenOptions={{ headerRight: () => <InboxBell />, contentStyle: { backgroundColor: theme.colors.background } }}>
       <Stack.Screen name="ConnectionsHome" component={ConnectionsScreen} options={{ title: 'Connections' }} />
       <Stack.Screen name="Directory" component={DirectoryScreen} options={{ title: 'Find people' }} />
       <Stack.Screen name="Profile" options={({ route }) => ({ title: route.params.title || 'Profile' })}>

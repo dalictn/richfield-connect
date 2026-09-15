@@ -1,4 +1,5 @@
 import React from 'react';
+import { theme } from '../ui/theme';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AdminConsoleScreen } from '../screens/admin/AdminConsoleScreen';
 import { AdminEventsScreen } from '../screens/admin/AdminEventsScreen';
@@ -30,7 +31,7 @@ const Stack = createNativeStackNavigator<AdminStackParamList>();
 
 export function AdminStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerRight: () => <InboxBell /> }}>
+    <Stack.Navigator screenOptions={{ headerRight: () => <InboxBell />, contentStyle: { backgroundColor: theme.colors.background } }}>
       <Stack.Screen name="AdminHome" component={AdminConsoleScreen} options={{ title: 'Console' }} />
       <Stack.Screen name="AdminUsers" component={AdminDashboardScreen} options={{ title: 'User management' }} />
       <Stack.Screen name="AdminApprovals" component={OpportunityApprovalScreen} options={{ title: 'Opportunity approvals' }} />

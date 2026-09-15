@@ -53,7 +53,7 @@ npm run web:emulators    # terminal 3: app on http://localhost:8080
 
 Demo accounts (password `Richfield#2026`): `thabo@my.richfield.ac.za` (student), `lerato.alumni@gmail.com` (alumni), `recruiter@tech-corp.co.za` (business), `admin@richfield.ac.za` (administrator).
 
-Deploying to Firebase, and the reasoning behind each prerequisite, is covered in [DEPLOYMENT.md](DEPLOYMENT.md). The presentation outline and demo script are in [docs/PRESENTATION.md](docs/PRESENTATION.md).
+Deploying to Firebase, and the reasoning behind each prerequisite, is covered in [DEPLOYMENT.md](DEPLOYMENT.md). The presentation outline and demo script are in [docs/PRESENTATION.md](docs/PRESENTATION.md), and the step-by-step guide for running the showcase demo is [docs/SHOWCASE-SETUP.md](docs/SHOWCASE-SETUP.md).
 
 ## Compliance & Privacy
 Built with South Africa's **Protection of Personal Information Act (POPIA)** in mind: per-section audience visibility, server-side redaction of other members' profiles, student numbers that never leave the server, a registry clients cannot read, and an audit log of administrator actions. Formal POPIA sign-off rests with Richfield's Information Officer.

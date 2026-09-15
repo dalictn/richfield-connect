@@ -10,60 +10,28 @@
     -->
     <meta name="color-scheme" content="light" />
     <style>
-      /* 1. Ensure the browser allows scrolling */
+      /*
+        A fixed-height page: every screen scrolls inside its own ScrollView, as on
+        mobile. Earlier global overrides (forcing overflow:auto and min-height on
+        every react-native-web view, and rewriting justify-content) made the tab
+        navigator's screen container scrollable and let inactive tabs stretch to
+        their content height, so scrolling past the end of one screen revealed the
+        tab underneath. They also clipped long forms and collapsed space-between rows.
+      */
       html, body {
         height: 100%;
         width: 100%;
         margin: 0;
         padding: 0;
-        background-color: #F8FAFC;
-        overflow-x: hidden;
-        overflow-y: auto !important;
+        background-color: #F6F8FA;
+        overflow: hidden;
       }
 
       #root {
-        min-height: 100%;
+        height: 100%;
         width: 100%;
         display: flex;
         flex-direction: column;
-      }
-
-      /* 2. OVERRIDE REACT NATIVE WEB: Force all clipped screen containers to scroll */
-      #root div[style*="overflow: hidden"],
-      #root div[class*="r-overflow"] {
-        overflow-y: auto !important;
-        -webkit-overflow-scrolling: touch;
-      }
-
-      /* 3. FIX "JUSTIFY-CONTENT: CENTER":
-         'safe center' tells the browser: Center the form IF it fits.
-         If it's taller than the screen, align to the TOP so headers/inputs NEVER get pushed off! */
-      #root div[style*="justify-content: center"],
-      #root div[class*="r-justifyContent"] {
-        justify-content: safe center !important;
-      }
-
-      /* 4. Ensure flex containers don't collapse or crush inputs */
-      #root div[style*="flex: 1"],
-      #root div[class*="r-flex"] {
-        min-height: min-content;
-      }
-
-      /* 5. Exempt the guided-tour overlay from rules 2-4. Rule 3 replaces its
-         bottom alignment with centring, rule 2 clips the panel, and rule 4's
-         min-height (which beats max-height) stops the text area capping. Selectors
-         include "div" twice so they outrank those rules; both sides use !important. */
-      #root div[data-testid="tour-layer"] {
-        justify-content: flex-end !important;
-      }
-      #root div[data-testid="tour-panel"] div[class*="r-overflow"] {
-        overflow-y: visible !important;
-      }
-      #root div[data-testid="tour-panel"] div[data-testid="tour-scroll"] {
-        flex: 0 0 auto !important;
-        min-height: 0 !important;
-        max-height: 200px !important;
-        overflow-y: auto !important;
       }
     </style>
   </head>

@@ -68,6 +68,9 @@ const TAB_ICONS: Record<string, string> = {
 
 // Shared by every role's tab navigator: icons, brand colours and the notification bell.
 const tabScreenOptions = ({ route }: { route: { name: string } }) => ({
+  // Opaque scenes: on web, inactive tabs stay mounted underneath the active one (z-index -1),
+  // so a transparent scene lets the previous tab's screen show through below short content.
+  sceneStyle: { backgroundColor: theme.colors.background },
   headerRight: () => <InboxBell />,
   tabBarActiveTintColor: theme.colors.primary,
   tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
@@ -94,7 +97,7 @@ const HEADERLESS_ROUTES = new Set(['Login', 'Onboarding', 'PendingApproval', 'Ac
 export function RootNavigator() {
   const { loading, firebaseUser, profile, profileError } = useAuth();
   if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" />;
-  return <TutorialHost><NavigationContainer ref={navigationRef} linking={getLinking()}><RootStack.Navigator screenOptions={({ route }) => ({ headerShown: !HEADERLESS_ROUTES.has(route.name) })}>
+  return <TutorialHost><NavigationContainer ref={navigationRef} linking={getLinking()}><RootStack.Navigator screenOptions={({ route }) => ({ headerShown: !HEADERLESS_ROUTES.has(route.name), contentStyle: { backgroundColor: theme.colors.background } })}>
     {!firebaseUser ? <RootStack.Group><RootStack.Screen name="Login" component={LoginScreen} /><RootStack.Screen name="RegisterChoice" component={RegisterChoiceScreen} options={{ title: 'Create an account' }} /><RootStack.Screen name="StudentRegister" component={StudentRegisterScreen} options={{ title: 'Student registration' }} /><RootStack.Screen name="AlumniVerify" component={AlumniVerifyScreen} options={{ title: 'Alumni verification' }} /><RootStack.Screen name="AlumniPending" component={AlumniEmailLinkPendingScreen} options={{ title: 'Check your email' }} /><RootStack.Screen name="BusinessRegister" component={BusinessRegisterScreen} options={{ title: 'Employer registration' }} /></RootStack.Group>
       : !profile ? <RootStack.Screen name="AccountProvisioning">{() => <AccountProvisioningScreen error={profileError} />}</RootStack.Screen>
       : profile.role === 'business' && !profile.isApproved ? <RootStack.Screen name="PendingApproval" component={PendingApprovalScreen} />

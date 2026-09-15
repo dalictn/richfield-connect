@@ -357,10 +357,126 @@ async function main() {
     updatedAt: Date.now(),
   });
 
-  // Thabo and Lerato are connected, so the demo can open a conversation straight away.
-  for (const [a, b] of [[studentUids[0], alumniUid], [alumniUid, studentUids[0]]]) {
-    await db.collection('connections').doc(a).collection('members').doc(b).set({ uid: b, status: 'accepted', connectedAt: now });
+  // --- Social demo data --------------------------------------------------------
+  // Written in the same shape the social Cloud Functions write, so every screen
+  // reads it exactly as it would read live activity. Fixed ids keep re-seeding
+  // idempotent. Thabo and Aisha are deliberately NOT connected: demo step 4
+  // connects them live to show connections-only fields appearing.
+  const ago = (hours) => admin.firestore.Timestamp.fromMillis(Date.now() - hours * 60 * 60 * 1000);
+  const people = {
+    thabo: { uid: studentUids[0], role: 'student', name: 'Thabo Nkosi' },
+    aisha: { uid: studentUids[1], role: 'student', name: 'Aisha Patel' },
+    lerato: { uid: alumniUid, role: 'alumni', name: 'Lerato Mokoena' },
+    sipho: { uid: siphoUid, role: 'alumni', name: 'Sipho Dube' },
+    zanele: { uid: zaneleUid, role: 'alumni', name: 'Zanele Khumalo' },
+    naledi: { uid: businessUid, role: 'business', name: 'Naledi Dlamini' },
+  };
+
+  const connectionPairs = [
+    ['thabo', 'lerato'], ['thabo', 'sipho'], ['thabo', 'zanele'], ['thabo', 'naledi'],
+    ['lerato', 'sipho'], ['lerato', 'zanele'], ['sipho', 'zanele'], ['lerato', 'naledi'],
+    ['aisha', 'zanele'], ['aisha', 'sipho'],
+  ];
+  const adjacency = new Map(Object.keys(people).map((key) => [key, new Set()]));
+  for (const [index, [a, b]] of connectionPairs.entries()) {
+    adjacency.get(a).add(b);
+    adjacency.get(b).add(a);
+    const connectedAt = ago(24 * (10 + index));
+    await db.collection('connections').doc(people[a].uid).collection('members').doc(people[b].uid).set({ uid: people[b].uid, status: 'accepted', connectedAt });
+    await db.collection('connections').doc(people[b].uid).collection('members').doc(people[a].uid).set({ uid: people[a].uid, status: 'accepted', connectedAt });
   }
+
+  // Mirrors relevanceScore in functions/src/social.ts.
+  const ROLE_AFFINITY = {
+    student: { student: 1.0, alumni: 1.4, business: 1.5, administrator: 0.3 },
+    alumni: { student: 1.2, alumni: 1.4, business: 1.5, administrator: 0.3 },
+    business: { student: 1.5, alumni: 1.6, business: 1.0, administrator: 0.4 },
+    administrator: { student: 1, alumni: 1, business: 1, administrator: 1 },
+  };
+  const feedScore = (viewerRole, authorRole, createdAt, reactions, comments) => {
+    const ageHours = Math.max(0, (Date.now() - createdAt.toMillis()) / 3600000);
+    return ROLE_AFFINITY[viewerRole][authorRole] * 100 + Math.exp(-ageHours / 72) * 40 + reactions * 2 + comments * 3;
+  };
+
+  const posts = [
+    {
+      id: 'seed-post-lerato-grad-programme', author: 'lerato', hours: 5,
+      body: "Standard Bank's graduate developer programme opens next month. If you're a final-year BSc IT student, get your GitHub tidy now — we look at real projects before we look at marks. Happy to review portfolios for Richfield students.",
+      reactions: [['thabo', 'like'], ['sipho', 'celebrate'], ['zanele', 'like']],
+      comments: [['thabo', 'Would love a review of my offline-first timetable app — thank you for offering!'], ['zanele', 'Seconding this. A clear README made the difference for me.']],
+    },
+    {
+      id: 'seed-post-thabo-hackathon', author: 'thabo', hours: 20,
+      body: "Shipped an offline-first campus timetable app with React Native and Firebase this weekend. It syncs when you're back online and 300 students are already using it. Biggest lesson: design for bad connectivity first.",
+      reactions: [['lerato', 'celebrate'], ['sipho', 'insightful'], ['naledi', 'like'], ['zanele', 'celebrate']],
+      comments: [['lerato', 'This is exactly the kind of project that stands out. Well done, Thabo.'], ['naledi', 'Great work — our graduate mobile role would suit you. Have a look in Opportunities.']],
+    },
+    {
+      id: 'seed-post-naledi-hiring', author: 'naledi', hours: 30,
+      body: 'TechCorp South Africa is hiring graduate mobile engineers in Johannesburg. We care about shipped projects, clear communication and curiosity. The listing is live on Richfield Connect — apply through Opportunities.',
+      reactions: [['thabo', 'like'], ['lerato', 'like']],
+      comments: [['thabo', 'Just applied. Excited about this one!']],
+    },
+    {
+      id: 'seed-post-sipho-study-group', author: 'sipho', hours: 44,
+      body: 'Running a free AWS Cloud Practitioner study group for Richfield students on Thursday evenings, online. Six weeks, with a practice exam at the end. Comment if you want in.',
+      reactions: [['aisha', 'like'], ['thabo', 'insightful'], ['zanele', 'like']],
+      comments: [['aisha', 'Count me in — I sit the exam in November.'], ['thabo', 'In! Is there a sign-up link?'], ['sipho', "I'll message everyone who commented with the invite."]],
+    },
+    {
+      id: 'seed-post-zanele-career-story', author: 'zanele', hours: 60,
+      body: 'Career story: I graduated from Richfield in 2020, spent three years as a data analyst at Discovery, then moved into product at Yoco. The SQL I learnt in second year still pays my bills. Ask me anything about switching from data into product.',
+      reactions: [['aisha', 'insightful'], ['lerato', 'celebrate'], ['sipho', 'like'], ['thabo', 'insightful']],
+      comments: [['aisha', 'What helped most when you moved into product?'], ['zanele', 'Owning one small feature end to end, then showing the numbers before and after.']],
+    },
+    {
+      id: 'seed-post-aisha-certificate', author: 'aisha', hours: 72,
+      body: 'Earned my Google Data Analytics certificate today. Next up: AWS Cloud Practitioner. Thanks to everyone who shared study notes.',
+      reactions: [['zanele', 'celebrate'], ['sipho', 'celebrate']],
+      comments: [['zanele', 'Congratulations, Aisha! Well deserved.']],
+    },
+  ];
+
+  for (const post of posts) {
+    const author = people[post.author];
+    const createdAt = ago(post.hours);
+    const postRef = db.collection('posts').doc(post.id);
+    await postRef.set({
+      uid: author.uid, authorRole: author.role, authorDisplayName: author.name, body: post.body,
+      reactionCount: post.reactions.length, commentCount: post.comments.length, createdAt, updatedAt: createdAt,
+    });
+    for (const [key, reaction] of post.reactions) {
+      await postRef.collection('reactions').doc(people[key].uid).set({ uid: people[key].uid, reaction, createdAt });
+    }
+    for (const [index, [key, body]] of post.comments.entries()) {
+      await postRef.collection('comments').doc(`seed-comment-${index + 1}`).set({ uid: people[key].uid, body, createdAt: ago(post.hours - (index + 1) * 0.5) });
+    }
+    // Fan out to the author and their connections, as createPost does.
+    for (const viewer of [post.author, ...adjacency.get(post.author)]) {
+      await db.collection('feeds').doc(people[viewer].uid).collection('items').doc(post.id).set({
+        postId: post.id, authorUid: author.uid, authorRole: author.role, authorDisplayName: author.name,
+        score: feedScore(people[viewer].role, author.role, createdAt, post.reactions.length, post.comments.length),
+        createdAt, updatedAt: createdAt,
+      });
+    }
+  }
+
+  // A mentoring conversation, so Messages has a real thread to open.
+  const thread = [
+    ['lerato', 'Hi Thabo, saw your timetable app post. Want to do a quick portfolio review this week?', 19],
+    ['thabo', 'Yes please! Would Thursday after 5 work?', 18.5],
+    ['lerato', "Thursday works. Send me your GitHub link and the one project you're proudest of.", 18],
+    ['thabo', 'Done — campus-timetable is the one. Thanks, Lerato!', 17.5],
+  ];
+  const conversationRef = db.collection('conversations').doc([people.thabo.uid, people.lerato.uid].sort().join('_'));
+  for (const [index, [key, body, hours]] of thread.entries()) {
+    await conversationRef.collection('messages').doc(`seed-message-${index + 1}`).set({ senderUid: people[key].uid, body, createdAt: ago(hours) });
+  }
+  const lastMessage = thread[thread.length - 1];
+  await conversationRef.set({
+    memberUids: [people.thabo.uid, people.lerato.uid],
+    lastMessage: lastMessage[1].slice(0, 160), lastMessageAt: ago(lastMessage[2]), updatedAt: ago(lastMessage[2]),
+  });
 
   console.log('Seeded accounts — every one uses the same password:\n');
   const rows = [
@@ -377,7 +493,9 @@ async function main() {
   console.log('\nAlso seeded: 1 alumni registry record (student number RF2018001),');
   console.log('2 opportunities (1 pending approval, 1 live), 5 skill-demand rows,');
   console.log('a full portfolio for Thabo (projects, certifications, badges, awards,');
-  console.log('leadership, societies, venture), 1 recommendation from Lerato, and a Thabo–Lerato connection.');
+  console.log('leadership, societies, venture) and 1 recommendation from Lerato.');
+  console.log('Social: 10 connections (Thabo and Aisha left unconnected for the demo), 6 posts with');
+  console.log('reactions and comments, and a Thabo–Lerato conversation.');
   console.log('Career pathways: Lerato, Sipho and Zanele (BSc IT). Events: 1 published, 1 draft.');
 }
 

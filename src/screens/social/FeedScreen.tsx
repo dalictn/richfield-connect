@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Avatar, Button, Card, Dialog, HelperText, IconButton, Portal, Snackbar, Text, TextInput, useTheme } from 'react-native-paper';
 import { useAuth } from '../../auth/AuthProvider';
-import { commentOnPost, createPost, reactToPost, reportContent, subscribeFeed, subscribePosts } from '../../social/socialService';
+import { commentOnPost, createPost, reactToPost, reportContent, subscribeFeed, subscribeMyReactions, subscribePosts } from '../../social/socialService';
 import type { FeedItem, SocialPost } from '../../types/social';
 import { initials, ROLE_LABELS } from '../../members/memberService';
 import { timeAgo } from '../../notifications/inboxService';
@@ -21,9 +21,14 @@ export function FeedScreen() {
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [liked, setLiked] = useState<Set<string>>(new Set());
+  // Optimistic like state while a reactToPost call is in flight, so the icon fills on tap.
+  const [pendingLikes, setPendingLikes] = useState<Record<string, boolean>>({});
 
   useEffect(() => (uid ? subscribeFeed(uid, setItems, (e) => setError(e.message)) : undefined), [uid]);
   useEffect(() => subscribePosts(items.map((item) => item.postId), setPosts, (e) => setError(e.message)), [items]);
+  const postIdsKey = items.map((item) => item.postId).join('|');
+  useEffect(() => (uid && postIdsKey ? subscribeMyReactions(uid, postIdsKey.split('|'), setLiked, (e) => setError(e.message)) : undefined), [uid, postIdsKey]);
 
   // The feed collection holds per-viewer scores; posts hold the content. Keep the ranked order.
   const ordered = useMemo(() => {
@@ -45,8 +50,19 @@ export function FeedScreen() {
     }
   }
 
+  const isLiked = (postId: string) => pendingLikes[postId] ?? liked.has(postId);
+
   async function react(postId: string) {
-    try { await reactToPost(postId, 'like'); } catch (e) { setError(e instanceof Error ? e.message : 'Unable to react.'); }
+    if (postId in pendingLikes) return; // a quick double tap would otherwise like then unlike
+    setPendingLikes((current) => ({ ...current, [postId]: !isLiked(postId) }));
+    try {
+      await reactToPost(postId, 'like');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to react.');
+    } finally {
+      // The reaction listener now holds the confirmed state (or the original, if the call failed).
+      setPendingLikes(({ [postId]: _settled, ...rest }) => rest);
+    }
   }
 
   async function sendComment(postId: string) {
@@ -116,7 +132,16 @@ export function FeedScreen() {
                 <Text variant="bodyLarge" style={styles.body}>{post.body}</Text>
               </Card.Content>
               <Card.Actions style={styles.actions}>
-                <Button mode="text" icon="thumb-up-outline" onPress={() => void react(post.id)}>{post.reactionCount}</Button>
+                <Button
+                  mode="text"
+                  icon={isLiked(post.id) ? 'thumb-up' : 'thumb-up-outline'}
+                  textColor={isLiked(post.id) ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                  onPress={() => void react(post.id)}
+                  accessibilityLabel={isLiked(post.id) ? 'Unlike post' : 'Like post'}
+                  accessibilityState={{ selected: isLiked(post.id) }}
+                >
+                  {post.reactionCount}
+                </Button>
                 <Button mode="text" icon="comment-outline" onPress={() => { setOpenComment(openComment === post.id ? null : post.id); setComment(''); }}>{post.commentCount}</Button>
               </Card.Actions>
               {openComment === post.id ? (
