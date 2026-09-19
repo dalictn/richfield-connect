@@ -1,4 +1,4 @@
-# Our hackathon submission for Richfields 2026 Annual Hackathon
+# Hackathon submission for Richfields 2026 Annual Hackathon
 
 
 ## Richfield Connect — Powered by GritSim AI
