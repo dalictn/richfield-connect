@@ -1,4 +1,7 @@
-# Richfield Connect — Powered by GritSim AI
+#My team and I's hackathon submission for Richfields 2026 Annual Hackathon
+
+
+## Richfield Connect — Powered by GritSim AI
 
 A cross-platform professional network for the Richfield and AAA community. Students, alumni, business recruiters and administrators share one verified network, with every role enforced on the server.
 
@@ -6,11 +9,11 @@ A cross-platform professional network for the Richfield and AAA community. Stude
 **GritSim AI** builds institutional infrastructure for **Graduate Readiness, Industry Transition, and Talent Matching (GRIT)**. Richfield Connect closes the gap between graduates and opportunities through verified identity, portfolio profiles, AI coaching and skill-based matching.
 
 ## Team GritSim AI (Core Contributors)
-- **Mosa (Mosalasaa999)**: Core Runtime Scaffolding, Multi-Role RBAC & Firebase Infrastructure
-- **Dali (dalictn)**: Principal Systems Architecture, Google Gemini Integration & Admin Suite
+- **Dali (@dalictn)**: Principal Systems Architecture, Google Gemini Integration & Admin Suite
+- **Mosa (@Mosalasaa999)**: Core Runtime Scaffolding, Multi-Role RBAC & Firebase Infrastructure
 - **Ina**: AI Profile Assistant Design, Career Pathway Explorer & UX Modelling
-- **Lindelani (gloriouslindelani-oss)**: 20-Field Portfolio Architecture & POPIA Compliance Framework
-- **Evan (Zenacy)**: Real-Time Communication Engine, Social Graph & Asynchronous Transcoding
+- **Lindelani (@gloriouslindelani-oss)**: 20-Field Portfolio Architecture & POPIA Compliance Framework
+- **Evan (@Zenacy)**: Real-Time Communication Engine, Social Graph & Asynchronous Transcoding
 
 ## Features
 - **Four roles, enforced server-side:** Firebase Auth custom claims, Firestore security rules and a check in every Cloud Function. No screen is a security boundary.
